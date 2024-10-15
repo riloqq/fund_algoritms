@@ -1,0 +1,218 @@
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+
+typedef enum kOpts{
+    OPT_R,
+    OPT_A
+} kOpts;
+
+typedef enum {
+    ERR_INVALID_NUMBER_OF_ARGS = -1,
+    SUCCESS = 0,
+    ERR_UNKNOWN_OPTION = 1,
+    ERR_output_file_cannot_be_input_file = 2,
+    ERR_Cannot_open_file = 3,
+} status;
+
+char* HandlerOptBase4(int number);
+status GetOpts(int argc, char** argv, kOpts* option, char* input[], char* output);
+status HandlerOptR(char** input_files, char* output_file);
+status HandlerOptA(char** input_file, char* output_file);
+int check_file_names(const char *file1, const char *file2);
+
+status GetOpts(int argc, char** argv, kOpts* option, char* input[], char* output) {
+    if (!((argc >= 4) && (argc <= 5))) {
+        return ERR_INVALID_NUMBER_OF_ARGS;
+    }
+    const char* procceding_option = argv[1];
+    int not_same1 = 0;
+    int not_same2 = 0;
+    if (((procceding_option[0] == '/') || (procceding_option[0] == '-')) &&
+        !(procceding_option[2])) {
+        switch (procceding_option[1]) {
+            case 'r':
+                *option = OPT_R;
+                if (argc != 5) {
+                    return ERR_INVALID_NUMBER_OF_ARGS;
+                }
+                input[0] = argv[2];
+                input[1] = argv[3];
+                output = argv[4];
+
+                if (check_file_names(input[0], output) == SUCCESS) {
+                    not_same1 = 1;
+                }
+                if (check_file_names(input[1], output) == SUCCESS) {
+                    not_same1 = 1;
+                }
+                if (!(not_same1) || !(not_same2)) {
+                    return ERR_output_file_cannot_be_input_file;
+                }
+                break;
+            case 'a':
+                *option = OPT_A;
+                if (argc != 4) {
+                    return ERR_INVALID_NUMBER_OF_ARGS;
+                }
+                input[0] = argv[2];
+                output = argv[3];
+                if (check_file_names(input[0], output) == SUCCESS) {
+                    not_same1 = 1;
+                }
+                if (!(not_same1)) {
+                    return ERR_output_file_cannot_be_input_file;
+                }
+                break;
+            default:
+                return ERR_UNKNOWN_OPTION;
+        }
+    }
+    else {
+        return ERR_UNKNOWN_OPTION;
+    }
+    return SUCCESS;
+}
+
+int check_file_names(const char *file1, const char *file2) {
+    const char * name1 = strrchr(file1,'\\');
+    const char * name2 = strrchr(file2,'\\');
+    if (name1 != NULL) {
+        name1++;
+    } else {
+        name1 = file1;
+    }
+    if (name2 != NULL) {
+        name2++;
+    } else {
+        name2 = file2;
+    }
+
+    if (strcmp(name1, name2) == 0) {
+        return ERR_output_file_cannot_be_input_file;
+    }
+    return SUCCESS;
+}
+
+char* HandlerOptBase4(int number) {
+    static char buffer[18]; // '\0'
+    int base4Digits[17];
+    int count = 0;
+    int pos = 0;
+
+    if (number == 0) {
+        buffer[pos++] = '0';
+        buffer[pos] = '\0';
+        return buffer;
+    }
+
+    while (number > 0) {
+        base4Digits[count++] = number % 4;
+        number /= 4;
+    }
+
+    for (int i = count - 1; i >= 0; i--) {
+        buffer[pos++] = base4Digits[i] + '0';
+    }
+    buffer[pos] = '\0';
+    return buffer;
+}
+
+status HandlerOptR(char** input_files, char* output_file) {
+    FILE *file1 = fopen(input_files[0], "r");
+    FILE *file2 = fopen(input_files[1], "r");
+    FILE *out = fopen(output_file, "w");
+    if (!file1 || !file2 || !out) {
+        if (file1) {
+            fclose(file1);
+        }
+        if (file2) {
+            fclose(file2);
+        }
+        if (out) {
+            fclose(out);
+        }
+        return ERR_Cannot_open_file;
+    }
+    char word1[BUFSIZ], word2[BUFSIZ];
+    int read_file1, read_file2;
+    int turn = 0;
+    while (1) {
+        if (turn % 2 == 0) {
+            read_file1 = fscanf(file1, "%s", word1);
+            if (read_file1 != EOF) {
+                fprintf(out, "%s ", word1);
+            }
+        } else {
+            read_file2 = fscanf(file2, "%s", word2);
+            if (read_file2 != EOF) {
+                fprintf(out, "%s ", word2);
+            }
+        }
+        turn++;
+        if (read_file1 == EOF && read_file2 == EOF) {
+            break;
+        }
+    }
+    fclose(file1);
+    fclose(file2);
+    fclose(out);
+    return SUCCESS;
+}
+status HandlerOptA(char** input_file, char* output_file) {
+    FILE* in = fopen(input_file[0], "r");
+    FILE* out = fopen(output_file, "w");
+    if (!in || !out) {
+        return ERR_Cannot_open_file;
+    }
+    char buffer[BUFSIZ];
+    int count = 0;
+    while (fgets(buffer, sizeof(buffer), in)) {
+        char* token = strtok(buffer, " \t\n");
+        while (token) {
+            count++;
+            if (count % 10 == 0) {
+                for (int i = 0; token[i]; i++) {
+                    token[i] = tolower(token[i]);
+                }
+                for (int i = 0; token[i]; i++) {
+                    int ascii_value = (int)token[i];
+                    char* base4String = HandlerOptBase4(ascii_value);
+                    fprintf(out, "%s ", base4String);
+                }
+            }
+            else if (count % 2 == 0) {
+                for (int i = 0; token[i]; i++) {
+                    token[i] = tolower(token[i]);
+                }
+                fprintf(out, "%s ", token);
+            }
+            else if (count % 5 == 0) {
+                for (int i = 0; token[i]; i++) {
+                    fprintf(out, "%o ", (int)token[i]);
+                }
+            }
+            else {
+                fprintf(out, "%s ", token);
+            }
+            token = strtok(NULL, " \t\n");
+        }
+    }
+    fclose(in);
+    fclose(out);
+    return SUCCESS;
+}
+
+int main(int argc, char** argv) {
+    kOpts opt;
+    char* input_file[2];
+    char* output_file;
+    status (*handlers[3])(char**, char*) = {HandlerOptR, HandlerOptA};
+    status  result;
+    result = GetOpts(argc, argv, &opt, input_file, &output_file);
+    if (result != SUCCESS){
+        return result;
+    }
+    handlers[opt](input_file, output_file);
+    return SUCCESS;
+}
