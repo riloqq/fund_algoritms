@@ -1,0 +1,67 @@
+#pragma warning(disable : 4996)
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+
+double f_a(double x);
+double f_b(double x);
+double f_c(double x);
+double f_d(double x);
+double trap(double (*f)(double), double a, double b, double epsilon);
+
+double f_a(double x) {
+	return log(1 + x) / x;
+}
+
+double f_b(double x) {
+	return exp(-x * x / 2);
+}
+
+double f_c(double x) {
+	return log(1 / (1 - x));
+}
+
+double f_d(double x) {
+	return pow(x, x);
+}
+
+double trap(double (*f)(double), double a, double b, double epsilon) {
+	int n = 1;
+	double h = (b - a) / n;
+	double integral_old = 0;
+	double integral_new = h * (f(a) + f(b)) / 2;
+
+	while (fabs(integral_new - integral_old) > epsilon) {
+		integral_old = integral_new;
+		n *= 2;
+		h = (b - a) / n;
+		integral_new = 0;
+
+		for (int i = 0; i < n; i++) {
+			integral_new += h * (f(a + i * h) + f(a + (i + 1) * h)) / 2;
+		}
+	}
+
+	return integral_new;
+}
+
+int main(int argc, char** argv) {
+	if (argc < 2) {
+		return 1;
+	}
+
+	double epsilon = atof(argv[1]);
+	
+		double integral_a = trap(f_a, 0.000001, 1, epsilon);
+		double integral_b = trap(f_b, 0, 1, epsilon);
+		double integral_c = trap(f_c, 0, 0.99999, epsilon);
+		double integral_d = trap(f_d, 0, 1, epsilon);
+
+		printf("Integral a: %.8f\n", integral_a);
+		printf("Integral b: %.8f\n", integral_b);
+		printf("Integral c: %.8f\n", integral_c);
+		printf("Integral d: %.8f\n", integral_d);
+		
+	
+	return 0;
+}
