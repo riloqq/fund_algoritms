@@ -1,0 +1,58 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+typedef enum {
+    ERR_INVALID_NUMBER_OF_ARGS = -1,
+    SUCCESS = 0
+} status;
+
+double eval_series(double eps, double x, double (*f)(double prev, double x, int n), int n) {
+    double sum = 0, prev_sum, cur_val = 1, delta = 10;
+    while (delta > eps) {
+        prev_sum = sum;
+        cur_val = f(cur_val, x, n++);
+        sum += cur_val;
+        delta = fabs(prev_sum - sum);
+    }
+
+    return sum;
+}
+
+double func_a(double prev, double x, int n) {
+    if (n < 1) n = 1;
+    return prev * x / n;
+}
+
+double func_b(double prev, double x, int n) {
+    if (n == 0) return 1;
+    return prev * (-1) * x * x / (2 * n * (2 * n - 1));
+}
+
+double func_c(double prev, double x, int n) {
+    if (n == 0) return 1;
+    return prev * ((27 * n * n * n * x * x) / (3 * n * (3 * n - 1) * (3 * n - 2)));
+}
+
+double func_d(double prev, double x, int n) {
+    return prev * (-1) * x * x * (2.0 * n - 1) / (2.0 * n);
+}
+
+int main(int argc, char** argv) {
+    if (argc < 3) {
+        return ERR_INVALID_NUMBER_OF_ARGS;
+    }
+    double eps = atof(argv[1]);
+    double x = atof(argv[2]);
+
+    printf("Series a: %f\n", eval_series(eps, x, func_a, 0));
+    printf("Series b: %f\n", eval_series(eps, x, func_b, 0));
+    if (fabs(x) >= 1) {
+        printf("Series c and d diverge if |x| >= 1.\n");
+        return SUCCESS;
+    } else {
+        printf("Series c: %f\n", eval_series(eps, x, func_c, 0));
+    }
+    printf("Series d: %f\n", eval_series(eps, x, func_d, 1));
+    return SUCCESS;
+}
