@@ -1,0 +1,71 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+typedef enum {
+    ERR_INVALID_NUMBER_OF_ARGS = -1,
+    SUCCESS = 0,
+    ERR_INVALID_INPUT = 1,
+    ERR_EMPTY_ARR = 2
+} status;
+
+status swap_min_max(int* array, int size);
+
+status swap_min_max(int* array, int size) {
+    if (size < 1) {
+        return ERR_EMPTY_ARR;
+    }
+
+    int minIndex, maxIndex;
+    int min = array[0], max = array[0];
+
+    for (int i = 0; i < size; i++) {
+        if (array[i] < min) {
+            min = array[i];
+            minIndex = i;
+        }
+        if (array[i] > max) {
+            max = array[i];
+            maxIndex = i;
+        }
+    }
+    if (minIndex != maxIndex) {
+        int temp = array[minIndex];
+        array[minIndex] = array[maxIndex];
+        array[maxIndex] = temp;
+    }
+    return SUCCESS;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 4) {
+        return ERR_INVALID_NUMBER_OF_ARGS;
+    }
+    int size = atoi(argv[1]);
+    int a = atoi(argv[2]);
+    int b = atoi(argv[3]);
+
+    if (size <= 0 || a >= b) {
+        return ERR_INVALID_INPUT;
+    }
+
+    int array[size];
+    srand(time(0));
+
+    for (int i = 0; i < size; i++) {
+        array[i] = a + rand() % (b - a + 1);
+    }
+
+    printf("Original array:\n");
+    for (int i = 0; i < size; i++) {
+        printf("%d ", array[i]);
+    }
+    printf("\n");
+    swap_min_max(array, size);
+    printf("Modified array:\n");
+    for (int i = 0; i < size; i++) {
+        printf("%d ", array[i]);
+    }
+    printf("\n");
+    return SUCCESS;
+}
