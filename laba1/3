@@ -1,0 +1,198 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
+
+typedef enum kOpts {
+    OPT_Q,
+    OPT_M,
+    OPT_T
+} kOpts;
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_INVALID_INPUT = 1,
+    ERR_TOO_FEW_ARGS = 2,
+    ERR_DIVISION_BY_ZERO = 3,
+    ERR_UNKNOWN_OPTION = 4
+} status;
+
+
+status GetOpts(int argc, char** argv, kOpts* option, double* params);
+status HandlerOptQ(double epsilon, double a, double b, double c);
+status HandlerOptM(int a, int b);
+status HandlerOptT(double epsilon, double a, double b, double c);
+
+status GetOpts(int argc, char** argv, kOpts* option, double* params) {
+    if (argc < 2) {
+        return ERR_TOO_FEW_ARGS;
+    }
+
+    if (strcmp(argv[1], "-q") == 0) {
+        *option = OPT_Q;
+        if (argc != 6) {
+            printf("Option -q requires 4 parameters: epsilon, a, b, c\n");
+            return ERR_TOO_FEW_ARGS;
+        }
+
+        params[0] = atof(argv[2]);
+        params[1] = atof(argv[3]);
+        params[2] = atof(argv[4]);
+        params[3] = atof(argv[5]);
+    }
+    else if (strcmp(argv[1], "-m") == 0) {
+        *option = OPT_M;
+        if (argc != 4) {
+            printf("Option -m requires 2 parameters: a, b\n");
+            return ERR_TOO_FEW_ARGS;
+        }
+
+        params[0] = atoi(argv[2]);
+        params[1] = atoi(argv[3]);
+    }
+    else if (strcmp(argv[1], "-t") == 0) {
+        *option = OPT_T;
+        if (argc != 6) {
+            printf("Option -t requires 4 parameters: epsilon, a, b, c\n");
+            return ERR_TOO_FEW_ARGS;
+        }
+
+        params[0] = atof(argv[2]);
+        params[1] = atof(argv[3]);
+        params[2] = atof(argv[4]);
+        params[3] = atof(argv[5]);
+    }
+    else {
+        printf("Unknown option: %s\n", argv[1]);
+        return ERR_UNKNOWN_OPTION;
+    }
+
+    return SUCCESS;
+}
+
+
+status HandlerOptQ(double epsilon, double a, double b, double c) {
+    double D = b * b - 4 * a * c;
+
+    if (fabs(D) < epsilon) {
+        D = 0;
+    }
+
+    if (D < 0) {
+        printf("No real roots\n");
+        return SUCCESS;
+    }
+    if (a == 0) {
+        if (b == 0) {
+            printf("No real roots\n");
+            return ERR_DIVISION_BY_ZERO;
+        }
+        double x = -c / b;
+        printf("One root: %f\n", x);
+        return SUCCESS;
+    }
+    else if (D == 0) {
+        double x = -b / (2 * a);
+        printf("One root: %f\n", x);
+        return SUCCESS;
+    }
+    else {
+        double sqrtD = sqrt(D);
+        double x1 = (-b + sqrtD) / (2 * a);
+        double x2 = (-b - sqrtD) / (2 * a);
+        printf("Two roots: %f and %f\n", x1, x2);
+        return SUCCESS;
+    }
+}
+
+status HandlerOptM(int a, int b) {
+    if ((b == 0) && (a == 0)) {
+        printf("both numbers mustn't be 0\n");
+        return ERR_INVALID_INPUT;
+    }
+
+    if (a % b == 0) {
+        printf("%d is divisible by %d\n", a, b);
+        return SUCCESS;
+    }
+    else {
+        printf("%d is not divisible by %d\n", a, b);
+        return SUCCESS;
+    }
+}
+
+status HandlerOptT(double epsilon, double a, double b, double c) {
+    if (a == 0 || b == 0 || c == 0) {
+        return ERR_INVALID_INPUT;
+    }
+    if (a > c) {
+        double temp = c;
+        c = a;
+        a = temp;
+    }
+    if (b > c) {
+        double temp = c;
+        c = b;
+        b = temp;
+    }
+    double lhs = a * a + b * b;
+    double rhs = c * c;
+
+    if (fabs(lhs - rhs) < epsilon) {
+        printf("These are the sides of a right triangle\n");
+        return SUCCESS;
+    }
+    else {
+        printf("These are not the sides of a right triangle\n");
+        return SUCCESS;
+    }
+}
+
+int main(int argc, char** argv) {
+    kOpts opt;
+    double params[4];
+
+    status status = GetOpts(argc, argv, &opt, params);
+    if (status != SUCCESS) {
+        printf("Error: %d\n", status);
+        return status;
+    }
+
+
+    switch (opt) {
+    case OPT_Q:
+        printf("%f %f %f \n", params[1], params[2], params[3]);
+        status = HandlerOptQ(params[0], params[1], params[2], params[3]);
+
+        printf("%f %f %f \n", params[1], params[3], params[2]);
+        status = HandlerOptQ(params[0], params[1], params[3], params[2]);
+
+        printf("%f %f %f \n", params[2], params[1], params[3]);
+        status = HandlerOptQ(params[0], params[2], params[1], params[3]);
+
+        printf("%f %f %f \n", params[2], params[3], params[1]);
+        status = HandlerOptQ(params[0], params[2], params[3], params[1]);
+
+        printf("%f %f %f \n", params[3], params[2], params[1]);
+        status = HandlerOptQ(params[0], params[3], params[2], params[1]);
+
+        printf("%f %f %f \n", params[3], params[1], params[2]);
+        status = HandlerOptQ(params[0], params[3], params[1], params[2]);
+        break;
+    case OPT_M:
+        status = HandlerOptM((int)params[0], (int)params[1]);
+        break;
+    case OPT_T:
+        status = HandlerOptT(params[0], params[1], params[2], params[3]);
+        break;
+    default:
+        status = ERR_UNKNOWN_OPTION;
+        break;
+    }
+    if (status != SUCCESS) {
+        printf("Error: %d\n", status);
+    }
+
+    return status;
+    
+}
