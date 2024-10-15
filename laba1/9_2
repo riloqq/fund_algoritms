@@ -1,0 +1,99 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+typedef enum {
+    ERR_Cannot_open_file = -1,
+    SUCCESS = 0,
+    ERR_INVALID_INPUT = 1,
+} status;
+
+int compare(const void *a, const void *b) {
+    return (*(int*)a - *(int*)b);
+}
+
+int closest_val(int val, int* array, int size) {
+    int left = 0, right = size - 1;
+    int closest = array[0];
+
+    while (left <= right) {
+        int mid = left + (right - left) / 2;
+
+        if (abs(val - array[mid]) < abs(val - closest)) {
+            closest = array[mid];
+        }
+
+        if (array[mid] < val) {
+            left = mid + 1;
+        }
+        else {
+            right = mid - 1;
+        }
+    }
+
+    if (left < size && abs(val - array[left]) < abs(val - closest)) {
+        closest = array[left];
+    }
+    if (right >= 0 && abs(val - array[right]) < abs(val - closest)) {
+        closest = array[right];
+    }
+
+    return closest;
+}
+
+int main() {
+    int size_A = 10 + rand() % (10000 - 10 + 1);
+    int size_B = 10 + rand() % (10000 - 10 + 1);
+
+    int* A = (int*)malloc(size_A * sizeof(int));
+    int* B = (int*)malloc(size_B * sizeof(int));
+    int* C = (int*)malloc(size_A * sizeof(int));
+
+    if (!A || !B || !C) {
+        if (A) free(A);
+        if (B) free(B);
+        if (C) free(C);
+        return ERR_Cannot_open_file;
+    }
+
+    srand(time(NULL));
+
+    for (int i = 0; i < size_A; i++) {
+        A[i] = -1000 + rand() % (2001);
+    }
+    for (int i = 0; i < size_B; i++) {
+        B[i] = -1000 + rand() % (2001);
+    }
+
+
+    qsort(B, size_B, sizeof(int), compare);
+
+    for (int i = 0; i < size_A; i++) {
+        int closest = closest_val(A[i], B, size_B);
+        C[i] = A[i] + closest;
+    }
+
+    printf("Array A: ");
+    for (int i = 0; i < size_A; i++) {
+        printf("%d ", A[i]);
+    }
+    printf("\n");
+
+    printf("Array B: ");
+    for (int i = 0; i < size_B; i++) {
+        printf("%d ", B[i]);
+    }
+    printf("\n");
+
+    printf("Array C: ");
+    for (int i = 0; i < size_A; i++) {
+        printf("%d ", C[i]);
+    }
+    printf("\n");
+
+    free(A);
+    free(B);
+    free(C);
+
+    return SUCCESS;
+}
