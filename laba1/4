@@ -1,0 +1,190 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+typedef enum {
+    OPT_D,
+    OPT_I,
+    OPT_S,
+    OPT_A
+} kOpts;
+
+typedef enum {
+    ERR_INVALID_NUMBER_OF_ARGS = -1,
+    SUCCESS = 0,
+    SUCESS = 1,
+    ERR_Memory_allocation = 2,
+    ERR_UNKNOWN_OPTION = 3,
+    ERR_output_file_cannot_be_input_file = 4,
+    ERR_Cannot_open_input_file = 5,
+    ERR_Cannot_open_output_file = 6
+} status;
+
+int GetOpts(int argc, char** argv, kOpts* option);
+status HandlerOptD(FILE* input, FILE* output);
+status HandlerOptI(FILE* input, FILE* output);
+status HandlerOptS(FILE* input, FILE* output);
+status HandlerOptA(FILE* input, FILE* output);
+char* get_file_name(const char* input_name);
+
+int GetOpts(int argc, char** argv, kOpts* option) {
+    if (argc < 3 || argc > 4) {
+        return -1;
+    }
+
+    if (strcmp(argv[1], "-d") == 0 && argc == 3) {
+        *option = OPT_D;
+        return 0;
+    }
+    else if (strcmp(argv[1], "-nd") == 0 && argc == 4) {
+        *option = OPT_D;
+        return 1;
+    }
+    else if (strcmp(argv[1], "-i") == 0 && argc == 3) {
+        *option = OPT_I;
+        return 0;
+    }
+    else if (strcmp(argv[1], "-ni") == 0 && argc == 4) {
+        *option = OPT_I;
+        return 1;
+    }
+    else if (strcmp(argv[1], "-s") == 0 && argc == 3) {
+        *option = OPT_S;
+        return 0;
+    }
+    else if (strcmp(argv[1], "-ns") == 0 && argc == 4) {
+        *option = OPT_S;
+        return 1;
+    }
+    else if (strcmp(argv[1], "-a") == 0 && argc == 3) {
+        *option = OPT_A;
+        return 0;
+    }
+    else if (strcmp(argv[1], "-na") == 0 && argc == 4) {
+        *option = OPT_A;
+        return 1;
+    }
+
+    return ERR_UNKNOWN_OPTION;
+
+}
+
+status HandlerOptD(FILE* input, FILE* output) {
+    char ch;
+    while ((ch = fgetc(input)) != EOF) {
+        if (!isdigit(ch)) {
+            fputc(ch, output);
+        }
+    }
+    return SUCCESS;
+}
+
+status HandlerOptI(FILE* input, FILE* output) {
+    char buffer[BUFSIZ];
+    int count;
+    while (fgets(buffer, BUFSIZ, input) != NULL) {
+        count = 0;
+        for (int i = 0; buffer[i] != '\0'; i++) {
+            if (isalpha(buffer[i])) {
+                count++;
+            }
+        }
+        fprintf(output, "The number of letters in a line: %d\n", count);
+    }
+    return SUCCESS;
+}
+
+status HandlerOptS(FILE* input, FILE* output) {
+    char buffer[BUFSIZ];
+    int count;
+    while (fgets(buffer, BUFSIZ, input) != NULL) {
+        count = 0;
+
+        for (int i = 0; buffer[i] != '\0'; i++) {
+            if (!isalnum(buffer[i]) && buffer[i] != ' ') {
+                count++;
+            }
+        }
+        fprintf(output, "The number of characters in a line: %d\n", count);
+    }
+    return SUCCESS;
+}
+
+status HandlerOptA(FILE* input, FILE* output) {
+    char buffer[BUFSIZ];
+    while (fgets(buffer, BUFSIZ, input) != NULL) {
+        for (int i = 0; buffer[i] != '\0'; i++) {
+            if (isdigit(buffer[i])) {
+                fputc(buffer[i], output);
+            }
+            else {
+                fprintf(output, "%x", buffer[i]);
+            }
+        }
+    }
+    return SUCCESS;
+}
+
+char* get_file_name(const char* input_name) {
+    char* last_slash = strrchr(input_name, '/');
+    if (last_slash == NULL) {
+        return (char*)input_name;
+    }
+    else {
+        return last_slash + 1;
+    }
+}
+
+int main(int argc, char* argv[]) {
+    kOpts opt = OPT_D;
+    const char* input_file = argv[2];
+    char* output_file = NULL;
+
+    status (*handlers[4])(FILE*, FILE*) = {
+            HandlerOptD,
+            HandlerOptI,
+            HandlerOptS,
+            HandlerOptA
+    };
+
+    status result = GetOpts(argc, argv, &opt);
+
+    if (result == -1) {
+        return ERR_INVALID_NUMBER_OF_ARGS;
+    }
+    if (result == 0) {
+        const char* input_abs_file = get_file_name(input_file);
+        output_file = (char*)malloc(strlen("out_") + strlen(input_abs_file) + 1); // +1 для '\0'
+        if (output_file == NULL) {
+            return ERR_Memory_allocation;
+        }
+        strcpy(output_file, "out_");
+        strcat(output_file, input_abs_file);
+    }
+    else if (result == 1) {
+        output_file = argv[3];
+        if (strcmp(output_file, input_file) == 0){
+            return ERR_output_file_cannot_be_input_file;
+        }
+    }
+
+    FILE* input = fopen(input_file, "r");
+    if (input == NULL) {
+        return ERR_Cannot_open_input_file;
+    }
+
+    FILE* output = fopen(output_file, "w");
+    if (output == NULL) {
+        fclose(input);
+        return ERR_Cannot_open_output_file;
+    }
+
+    handlers[opt](input, output);
+    fclose(input);
+    fclose(output);
+    if (result == 0 && output_file != NULL) {
+        free(output_file);
+    }
+    return SUCCESS;
+}
