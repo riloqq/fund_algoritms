@@ -1,0 +1,194 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
+
+#define MAX_DIGITS 500
+
+
+typedef enum kOpts {
+    OPT_H,
+    OPT_P,
+    OPT_S,
+    OPT_E,
+    OPT_A,
+    OPT_F
+} kOpts;
+
+int GetOpts(int argc, char** argv, kOpts* option, int* number); // Пример функции как вариант для парсинга что вам вообще поступило
+int multiply(int x, int result[], int result_size);
+void HandlerOptP(int number); // обработчики опций
+void HandlerOptH(int number);
+void HandlerOptS(int number);
+void HandlerOptE(int number);
+void HandlerOptA(int number);
+void HandlerOptF(int number);
+
+
+int GetOpts(int argc, char** argv, kOpts* option, int* number) {
+    if (argc < 2) {
+        return 1;
+    }
+    *number = atoi(argv[1]);
+    if (strcmp(argv[2], "-h") == 0) {
+        *option = OPT_H;
+        return 0;
+    }
+    else if (strcmp(argv[2], "-p") == 0) {
+        *option = OPT_P;
+        return 0;
+    }
+    else if (strcmp(argv[2], "-s") == 0) {
+        *option = OPT_S;
+        return 0;
+    }
+    else if (strcmp(argv[2], "-e") == 0) {
+        *option = OPT_E;
+        return 0;
+    }
+    else if (strcmp(argv[2], "-a") == 0) {
+        *option = OPT_A;
+        return 0;
+    }
+    else if (strcmp(argv[2], "-f") == 0) {
+        *option = OPT_F;
+        return 0;
+    }
+
+    return 1;
+
+
+}
+
+void HandlerOptH(int number) {
+    int flag = 0;
+    for (int n = 1; n <= 100; n++) {
+        if (n % number == 0) {
+            flag = printf("%d ", n);
+
+        }
+    }
+    if (flag == 0) {
+        printf("there is no multiple number");
+    }
+}
+
+
+void HandlerOptP(int number) {
+    if (number <= 1) {
+        printf("not prime not composite number");
+        return;
+    }
+    if (number == 2) {
+        printf("prime number");
+        return;
+    }
+    if (number % 2 == 0) {
+        printf("composite number");
+        return;
+    }
+    for (int n = 3; n <= sqrt(number); n += 2) {
+        if (number % n == 0) {
+            printf("composite number");
+            return;
+        }
+    }
+    printf("prime number");
+    return;
+}
+
+void HandlerOptS(int number) {
+    int hexDigits[17];
+    int count = 0;
+
+    while (number > 0) {
+        hexDigits[count++] = number % 16;
+        number /= 16;
+    }
+
+    if (count == 0) {
+        printf("0");
+        return;
+    }
+
+    for (int n = count - 1; n >= 0; n--) {
+        printf("%X", hexDigits[n]);
+        if (n > 0) {
+            printf(" ");
+        }
+
+    }
+}
+
+void HandlerOptE(int number) {
+    if (number >= 10) {
+        printf("number must be <= 10");
+        return;
+    }
+    for (int x = 1; x <= number; x++) {
+        for (int y = 1; y <= 10; y++) {
+            printf("%f ", pow(y, x));
+        }
+        printf("\n");
+    }
+}
+void HandlerOptA(int number) {
+    printf("%f ", ((double)(1 + number) / 2) * number);
+}
+
+int multiply(int x, int result[], int result_size) {
+    int carry = 0; // перенос разряда
+
+    for (int i = 0; i < result_size; i++) {
+        int prod = result[i] * x + carry;
+        result[i] = prod % 10;
+        carry = prod / 10;
+    }
+
+    while (carry) {
+        result[result_size] = carry % 10;
+        carry /= 10;
+        result_size++;
+    }
+    return result_size;
+}
+
+void HandlerOptF(int number) {
+    if (number < 0) {
+        printf("there is no factorial for negative numbers");
+    }
+    else {
+        int result[MAX_DIGITS];
+
+        result[0] = 1;
+        int result_size = 1;
+
+        for (int x = 2; x <= number; x++)
+            result_size = multiply(x, result, result_size);
+
+        printf("Factorial of number %d = ", number);
+        for (int i = result_size - 1; i >= 0; i--)
+            printf("%d", result[i]);
+    }
+}
+
+int main(int argc, char** argv) {
+    kOpts opt = OPT_H;
+    int procceed_number = 0;
+    void (*handlers[6])(int) = {
+        HandlerOptH,
+        HandlerOptP,
+        HandlerOptS,
+        HandlerOptE,
+        HandlerOptA,
+        HandlerOptF
+    };
+
+    if (GetOpts(argc, argv, &opt, &procceed_number)) {
+        printf("%s", "Incorrect option");
+        return 1;
+    }
+
+    handlers[opt](procceed_number);
+    return 0;
+}
