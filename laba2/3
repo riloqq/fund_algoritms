@@ -1,0 +1,96 @@
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <string.h>
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_OPENING_FILE = 2,
+    ERR_INVALID_ARG_COUNT = 3
+} status;
+
+bool find_substring(const char* str, const char* substr) {
+    const char *p1 = str;
+    const char *p2 = substr;
+
+    while (*p1 && *p2 && *p1 == *p2) {
+        p1++;
+        p2++;
+    }
+
+    return *p2 == '\0';
+}
+
+int search_in_files(const char* substr, int num_files, ...) {
+    if (num_files <= 0) {
+        printf("Ошибка: должно быть передано хотя бы одно имя файла.\n");
+        return ERR_INVALID_ARG_COUNT;
+    }
+
+    va_list args;
+    va_start(args, num_files);
+
+    int actual_file_count = 0;
+
+    for (int i = 0; i < num_files - 1; i++) {
+        const char* file_path = va_arg(args, const char*);
+        actual_file_count++;
+
+        FILE* file = fopen(file_path, "r");
+        if (file == NULL) {
+            printf("Ошибка открытия файла: %s\n", file_path);
+            va_end(args);
+            return ERR_OPENING_FILE;
+        }
+
+        printf("Файл: %s\n", file_path);
+        char line[BUFSIZ];
+        int line_number = 1;
+        bool found = false;
+
+        while (fgets(line, sizeof(line), file)) {
+            const char* p = line;
+            int column = 0;
+
+            while (*p != '\0') {
+                if (find_substring(p, substr)) {
+                    printf("Найдено вхождение в строке %d, позиция %d\n", line_number, column + 1);
+                    found = true;
+                }
+                p++;
+                column++;
+            }
+
+            line_number++;
+        }
+
+        fclose(file);
+
+        if (!found) {
+            printf("Подстрока \"%s\" не найдена в файле: %s\n", substr, file_path);
+        }
+    }
+    if (va_arg(args, const char*)) {
+        printf("Ошибка: передано количество файлов, отличное от num_files.\n");
+        return ERR_INVALID_ARG_COUNT;
+    }
+    va_end(args);
+
+    if (actual_file_count < num_files - 1) {
+        printf("Ошибка: передано количество файлов, отличное от num_files.\n");
+        return ERR_INVALID_ARG_COUNT;
+    }
+
+    return SUCCESS;
+}
+
+int main() {
+    int result = search_in_files("test", 3, "file1.txt","file2.txt", NULL);
+
+    if (result != SUCCESS) {
+        printf("Код ошибки: %d\n", result);
+        return result;
+    }
+
+    return SUCCESS;
+}
