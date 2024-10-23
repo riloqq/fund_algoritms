@@ -1,0 +1,50 @@
+#include <stdio.h>
+#include <math.h>
+
+typedef enum Errors {
+    Wrong_interval = 2,
+    SUCCESS = 0
+} Errors;
+
+int dichotomy_method(long double eps, long double(*func)(long double ), long double a, long double b, long double* res) {
+    if (func(a) * func(b) >  0) {
+        return Wrong_interval;
+    }
+
+    while (fabsl(a - b) > eps) {
+        if (func(a) * func((a + b) / 2) > 0) {
+            a = (a + b) / 2;
+        }
+        else {
+            b = (a + b) / 2;
+        }
+    }
+
+    *res = (a + b) / 2.0;
+    return 0;
+}
+
+long double func1(long double x){
+    return ((x - 1)*(x - 1)*(x - 1)*(x - 1)/(x-1));
+}
+
+int main() {
+    double a, b, epsilon;
+    printf("Введите границы интервала [a, b]:\n");
+    scanf("%lf %lf", &a, &b);
+
+    printf("Введите точность (epsilon):\n");
+    scanf("%lf", &epsilon);
+
+    int err;
+    long double res;
+    err = dichotomy_method(epsilon, func1, a, b, &res);
+    if (err) {
+        printf("Wrong Interval or Invalid Function\n");
+        return Wrong_interval;
+    }
+    else {
+        printf("Корень уравнения на интервале [%.5lf, %.5lf] с точностью %.5lf: %Lf.16\n", a, b, epsilon, res);
+        return SUCCESS;
+}
+    }
