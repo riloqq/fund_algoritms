@@ -1,0 +1,105 @@
+#include <stdio.h>
+#include <stdarg.h>
+#include <math.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <float.h>
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_INVALID_BASE = 2,
+    ERR_OVERFLOW = 3
+} status;
+
+int gcd(int a, int b) {
+    while (b != 0) {
+        int temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+void simplify_fraction(int *numerator, int *denominator) {
+    int nod = gcd(*numerator, *denominator);
+    *numerator /= nod;
+    *denominator /= nod;
+}
+
+int has_finite_representation(double value, int base) {
+    if (isinf(value) || isnan(value)) {
+        return 0;
+    }
+
+    if (value == 0.0) {
+        return 1;
+    }
+
+    int num = 1;  // числитель
+    int den = 1;  // знаменатель
+
+    while (value != floor(value)) {
+
+        if (value > DBL_MAX / 10) {
+            return ERR_OVERFLOW;
+        }
+        value *= 10;
+        den *= 10;
+
+        if (den > INT_MAX) {
+            return ERR_OVERFLOW;
+        }
+    }
+
+    simplify_fraction(&num, &den);
+
+    while (den % base == 0) {
+        den /= base;
+    }
+
+    return den == 1;
+}
+
+int check_finite_representation(int base, int count, ...) {
+    va_list args;
+    va_start(args, count);
+
+    for (int i = 0; i < count; i++) {
+        double value = va_arg(args, double);
+        if (has_finite_representation(value, base) == ERR_OVERFLOW) {
+            return ERR_OVERFLOW;
+        }
+        if (has_finite_representation(value, base)) {
+            printf("Число %f имеет конечное представление в системе с основанием %d.\n", value, base);
+        } else {
+            printf("Число %f не имеет конечного представления в системе с основанием %d.\n", value, base);
+        }
+    }
+
+    va_end(args);
+    return SUCCESS;
+}
+
+int main() {
+    char base_input[10];
+    int base;
+
+    printf("Введите основание системы счисления (от 2): ");
+    scanf("%9s", base_input);
+
+    char* end_ptr;
+    long base_l = strtol(base_input, &end_ptr, 10);
+
+    if (*end_ptr != '\0' || base_l < 2 || base_l > INT_MAX) {
+        printf("Недопустимое основание системы счисления.\n");
+        return ERR_INVALID_BASE;
+    }
+
+    base = (int)base_l;
+
+    if (check_finite_representation(base, 3, 0.5, 0.25, 0.3) == ERR_OVERFLOW) {
+        return ERR_OVERFLOW;
+    }
+
+    return SUCCESS;
+}
