@@ -1,0 +1,134 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_INVALID_BASE = 2,
+    ERR_WRONG_INPUT = 3,
+} status;
+
+int char_to_digit(char c);
+char digit_to_char(int digit);
+int is_valid_number(const char* num, int base);
+char* add_in_base(const char* num1, const char* num2, int base);
+char* sum_in_base(int base, int num_count, ...);
+
+int char_to_digit(char c) {
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    } else if (c >= 'A' && c <= 'Z') {
+        return c - 'A' + 10;
+    } else if (c >= 'a' && c <= 'z') {
+        return c - 'a' + 10;
+    }
+    return -1;
+}
+
+char digit_to_char(int digit) {
+    if (digit >= 0 && digit <= 9) {
+        return '0' + digit;
+    } else if (digit >= 10 && digit <= 35) {
+        return 'A' + (digit - 10);
+    }
+}
+
+int is_valid_number(const char* num, int base) {
+    for (int i = 0; num[i] != '\0'; i++) {
+        int digit = char_to_digit(num[i]);
+        if (digit < 0 || digit >= base) {
+            return 0;
+        }
+    }
+    return 1; // Число корректно
+}
+
+char* add_in_base(const char* num1, const char* num2, int base) {
+    int len1 = strlen(num1);
+    int len2 = strlen(num2);
+    int max_len = len1 > len2 ? len1 : len2;
+
+    char* result = (char*)malloc(max_len + 2);
+    int carry = 0;
+    int index1 = len1 - 1, index2 = len2 - 1, result_index = 0;
+
+    while (index1 >= 0 || index2 >= 0 || carry > 0) {
+        int digit1 = (index1 >= 0) ? char_to_digit(num1[index1--]) : 0;
+        int digit2 = (index2 >= 0) ? char_to_digit(num2[index2--]) : 0;
+        int sum = digit1 + digit2 + carry;
+        carry = sum / base;
+        sum = sum % base;
+        result[result_index++] = digit_to_char(sum);
+    }
+
+    result[result_index] = '\0';
+
+    for (int i = 0; i < result_index / 2; i++) {
+        char temp = result[i];
+        result[i] = result[result_index - 1 - i];
+        result[result_index - 1 - i] = temp;
+    }
+
+    return result;
+}
+
+char* sum_in_base(int base, int num_count, ...) {
+    va_list args;
+    va_start(args, num_count);
+
+    char* sum = strdup("0");
+
+    for (int i = 0; i < num_count; i++) {
+        const char* next_num = va_arg(args, const char*);
+
+        if (!is_valid_number(next_num, base)) {
+            printf("Ошибка: недопустимое число '%s' для основания %d.\n", next_num, base);
+            free(sum);
+            va_end(args);
+            return NULL;
+        }
+
+        char* temp = add_in_base(sum, next_num, base);
+        free(sum);
+        sum = temp;
+    }
+
+    va_end(args);
+
+    int start_index = 0;
+    while (sum[start_index] == '0' && sum[start_index + 1] != '\0') {
+        start_index++;
+    }
+
+    if (start_index > 0) {
+        memmove(sum, sum + start_index, strlen(sum) - start_index + 1);
+    }
+
+    return sum;
+}
+
+int main() {
+    char base_input[10];
+    int base;
+
+    printf("Введите основание системы счисления (от 2 до 36): ");
+    scanf("%9s", base_input);
+
+    char* end_ptr;
+    base = strtol(base_input, &end_ptr, 10);
+
+    if (*end_ptr != '\0' || base < 2 || base > 36) {
+        printf("Недопустимое основание системы счисления.\n");
+        return ERR_INVALID_BASE;
+    }
+
+    char* result = sum_in_base(base, 3, "101", "191", "76");
+    if (!result) {
+        return ERR_WRONG_INPUT;
+    }
+
+    printf("Результат сложения: %s\n", result);
+    free(result);
+    return SUCCESS;
+}
