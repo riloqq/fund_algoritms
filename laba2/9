@@ -1,15 +1,20 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <math.h>
-#include <stdlib.h>
 #include <limits.h>
-#include <float.h>
 
 typedef enum {
     SUCCESS = 0,
     ERR_INVALID_BASE = 2,
     ERR_OVERFLOW = 3
 } status;
+
+int gcd(int a, int b);
+void reduce(int *numerator, int *denominator);
+int prod_prime_devisors(int number);
+int is_prime(long int number);
+int validate_denominator(double x, int *numerator, int *denominator);
 
 int gcd(int a, int b) {
     while (b != 0) {
@@ -20,10 +25,84 @@ int gcd(int a, int b) {
     return a;
 }
 
-void simplify_fraction(int *numerator, int *denominator) {
-    int nod = gcd(*numerator, *denominator);
-    *numerator /= nod;
-    *denominator /= nod;
+void reduce(int *numerator, int *denominator) {
+    int divisor = gcd(*numerator, *denominator);
+    *numerator /= divisor;
+    *denominator /= divisor;
+}
+
+int prod_prime_devisors(int number) {
+    if (number < 2) return 1;
+    int product = 1;
+    for (int i = 2; i <= number; i++) {
+        if (number % i == 0 && is_prime(i)) {
+            if (product > INT_MAX / i) {
+                return ERR_OVERFLOW;
+            }
+            product *= i;
+            while (number % i == 0) {
+                number /= i;
+            }
+        }
+    }
+    return product;
+}
+
+int is_prime(long int number) {
+    if (number < 2) return 0;
+    for (int k = 2; k * k <= number; k++) {
+        if (number % k == 0) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int validate_denominator(double x, int *numerator, int *denominator) {
+    *numerator = 1;
+    *denominator = (int)round(1.0 / x);
+
+    double eps = 0.00001;
+    double approximation = (double)*numerator / *denominator;
+    double difference = approximation - x;
+
+    while (fabs(difference) >= eps) {
+        int diffDenominator;
+        if (difference > 0) {
+            diffDenominator = (int)round(1.0 / difference);
+            int newNumerator = *numerator * diffDenominator - *denominator;
+
+            if (newNumerator > INT_MAX || newNumerator < INT_MIN) {
+                return ERR_OVERFLOW;
+            }
+            int newDenominator = *denominator * diffDenominator;
+
+            if (newDenominator > INT_MAX || newDenominator < INT_MIN) {
+                return ERR_OVERFLOW;
+            }
+            *numerator = newNumerator;
+            *denominator = newDenominator;
+        } else {
+            diffDenominator = (int)round(1.0 / -difference);
+            int newNumerator = *numerator * diffDenominator + *denominator;
+
+            if (newNumerator > INT_MAX || newNumerator < INT_MIN) {
+                return ERR_OVERFLOW;
+            }
+            int newDenominator = *denominator * diffDenominator;
+
+            if (newDenominator > INT_MAX || newDenominator < INT_MIN) {
+                return ERR_OVERFLOW;
+            }
+            *numerator = newNumerator;
+            *denominator = newDenominator;
+        }
+
+        approximation = (double)*numerator / *denominator;
+        difference = approximation - x;
+    }
+    reduce(numerator, denominator);
+    return SUCCESS;
 }
 
 int has_finite_representation(double value, int base) {
@@ -35,29 +114,18 @@ int has_finite_representation(double value, int base) {
         return 1;
     }
 
-    int num = 1;  // числитель
-    int den = 1;  // знаменатель
-
-    while (value != floor(value)) {
-
-        if (value > DBL_MAX / 10) {
-            return ERR_OVERFLOW;
-        }
-        value *= 10;
-        den *= 10;
-
-        if (den > INT_MAX) {
-            return ERR_OVERFLOW;
-        }
+    int numerator, denominator;
+    int validation_result = validate_denominator(value, &numerator, &denominator);
+    if (validation_result == ERR_OVERFLOW) {
+        return ERR_OVERFLOW;
     }
 
-    simplify_fraction(&num, &den);
-
-    while (den % base == 0) {
-        den /= base;
+    int prod = prod_prime_devisors(denominator);
+    if (prod == ERR_OVERFLOW) {
+        return ERR_OVERFLOW;
     }
 
-    return den == 1;
+    return (base % prod == 0);
 }
 
 int check_finite_representation(int base, int count, ...) {
@@ -66,16 +134,18 @@ int check_finite_representation(int base, int count, ...) {
 
     for (int i = 0; i < count; i++) {
         double value = va_arg(args, double);
-        if (has_finite_representation(value, base) == ERR_OVERFLOW) {
+        int result = has_finite_representation(value, base);
+        if (result == ERR_OVERFLOW) {
+            printf("Ошибка: переполнение при обработке числа %f.\n", value);
+            va_end(args);
             return ERR_OVERFLOW;
         }
-        if (has_finite_representation(value, base)) {
+        if (result) {
             printf("Число %f имеет конечное представление в системе с основанием %d.\n", value, base);
         } else {
             printf("Число %f не имеет конечного представления в системе с основанием %d.\n", value, base);
         }
     }
-
     va_end(args);
     return SUCCESS;
 }
@@ -87,7 +157,7 @@ int main() {
     printf("Введите основание системы счисления (от 2): ");
     scanf("%9s", base_input);
 
-    char* end_ptr;
+    char *end_ptr;
     long base_l = strtol(base_input, &end_ptr, 10);
 
     if (*end_ptr != '\0' || base_l < 2 || base_l > INT_MAX) {
@@ -97,7 +167,7 @@ int main() {
 
     base = (int)base_l;
 
-    if (check_finite_representation(base, 3, 0.5, 0.25, 0.3) == ERR_OVERFLOW) {
+    if (check_finite_representation(base, 3, 0.17, 1.0/17.0, 1.0/5.0) == ERR_OVERFLOW) {
         return ERR_OVERFLOW;
     }
 
