@@ -52,7 +52,6 @@ char* add_in_base(const char* num1, const char* num2, int base) {
     char* result = (char*)malloc(max_len + 2);
     int carry = 0;
     int index1 = len1 - 1, index2 = len2 - 1, result_index = 0;
-
     while (index1 >= 0 || index2 >= 0 || carry > 0) {
         int digit1 = (index1 >= 0) ? char_to_digit(num1[index1--]) : 0;
         int digit2 = (index2 >= 0) ? char_to_digit(num2[index2--]) : 0;
@@ -109,21 +108,21 @@ char* sum_in_base(int base, int num_count, ...) {
 }
 
 int main() {
-    char base_input[10];
+    char base_input[BUFSIZ];
     int base;
 
     printf("Введите основание системы счисления (от 2 до 36): ");
-    scanf("%9s", base_input);
+    scanf("%8191s", base_input);
 
     char* end_ptr;
-    base = strtol(base_input, &end_ptr, 10);
+    base = (int)strtol(base_input, &end_ptr, 10);
 
     if (*end_ptr != '\0' || base < 2 || base > 36) {
         printf("Недопустимое основание системы счисления.\n");
         return ERR_INVALID_BASE;
     }
 
-    char* result = sum_in_base(base, 3, "101", "191", "76");
+    char* result = sum_in_base(base, 3, "ZZZZZZZZZ", "000000000", "Z");
     if (!result) {
         return ERR_WRONG_INPUT;
     }
