@@ -1,0 +1,93 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_INVALID_NUMB_OF_ARGS = 1,
+    ERR_Cannot_open_input_file = 2,
+    ERR_Cannot_open_output_file = 3,
+    ERR_output_file_cannot_be_input_file = 4
+} status;
+
+typedef enum {
+    OPT_A,
+    OPT_D
+} kOpts;
+
+typedef struct {
+    unsigned int id;
+    char* name;
+    char* surname;
+    double salary;
+} Employee;
+
+status GetOpts(int argc, char** argv, kOpts* option, int* number); // Пример функции как вариант для парсинга что вам вообще поступило
+status HandlerOptA(FILE*, FILE*);
+status HandlerOptD(FILE*, FILE*);
+char* get_file_name(const char* input_name);
+
+status GetOpts(int argc, char** argv, kOpts* option, int* number) {
+    if (argc != 4) {
+        return ERR_INVALID_NUMB_OF_ARGS;
+    }
+    if (strcmp(argv[3], "-a") == 0 || strcmp(argv[3], "/a") == 0) {
+        *option = OPT_A;
+        return SUCCESS;
+    }
+    else if (strcmp(argv[3], "-d") == 0 || strcmp(argv[3], "/d") == 0) {
+        *option = OPT_D;
+        return SUCCESS;
+    }
+    return ERR_INVALID_NUMB_OF_ARGS;
+}
+
+
+
+char* get_file_name(const char* input_name) {
+    char* last_slash = strrchr(input_name, '/');
+    if (last_slash == NULL) {
+        return (char*)input_name;
+    }
+    else {
+        return last_slash + 1;
+    }
+}
+
+int main(int argc, char** argv) {
+    kOpts opt = OPT_A;
+    int procceed_number = 0;
+    status (*handlers[2])(FILE*, FILE*)= {
+            HandlerOptA,
+            HandlerOptD
+    };
+    if (GetOpts(argc, argv, &opt, &procceed_number)) {
+        printf("%s", "Incorrect option");
+        return ERR_INVALID_NUMB_OF_ARGS;
+    }
+    const char* input_file = argv[1];
+    const char* output_file = argv[2];
+
+    const char* input_abs_file = get_file_name(input_file);
+    const char* output_abs_file = get_file_name(output_file);
+
+    if (strcmp(input_abs_file, output_abs_file) == 0) {
+        return ERR_output_file_cannot_be_input_file;
+    }
+    FILE* input = fopen(input_file, "r");
+    if (input == NULL) {
+        return ERR_Cannot_open_input_file;
+    }
+
+    FILE* output = fopen(output_file, "w");
+    if (output == NULL) {
+        fclose(input);
+        return ERR_Cannot_open_output_file;
+    }
+
+    handlers[opt](input, output);
+    fclose(input);
+    fclose(output);
+    return SUCCESS;
+}
