@@ -1,0 +1,141 @@
+#include <stdio.h>
+#include <string.h>
+#include <malloc.h>
+
+typedef struct {
+    char *arr;
+    int len;
+} String;
+
+String* create_string(char* str);
+void delete_string(String* string);
+int compare_strings(String* string1, String* string2);
+int eqaul_strings(String* string1, String* string2);
+int copy_string(String* string_out, String* string_in);
+String* copy_new_string(String* string);
+String* concat(String* string_to, String* string_extra);
+
+String* create_string(char* str) {
+    String* string = (String*)malloc(sizeof(String));
+    if (!string) {
+        return NULL;
+    }
+    string->len = (int)strlen(str);
+    string->arr = (char*) malloc(sizeof(char) * (string->len + 1));
+    if (!string->arr) {
+        free(string);
+        return NULL;
+    }
+    for (int i = 0; i < string->len; i++) {
+        string->arr[i] = str[i];
+    }
+    string->arr[string->len] = '\0';
+    return string;
+}
+
+void delete_string(String* string) {
+    if (!string) {
+        return;
+    }
+    if (string->arr) {
+        free(string->arr);
+    }
+    string->len = 0;
+    free(string);
+}
+
+int compare_strings(String* string1, String* string2) {
+    if (!string1 || !string2) {
+        return 19;
+    }
+    if (string1->len > string2->len) {
+        return 1;
+    } else if (string1->len < string2->len) {
+        return 2;
+    }
+    for (int i = 0; i < string1->len; i++) {
+        if (string1->arr[i] > string2->arr[i]) {
+            return 1;
+        } else if (string1->arr[i] < string2->arr[i]) {
+            return 2;
+        }
+    }
+    return 0;
+}
+
+int eqaul_strings(String* string1, String* string2) {
+    if (!string1 || !string2) {
+        return 19;
+    }
+    if (string1->len > string2->len || string1->len < string2->len) {
+        return 1;
+    }
+    for (int i = 0; i < string1->len; i++) {
+        if (string1->arr[i] != string2->arr[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int copy_string(String* string_out, String* string_in) {
+    if (!string_out || !string_in) {
+        return 19;
+    }
+    if (string_in->arr) {
+        free(string_in->arr);
+    }
+    string_in->len = string_out->len;
+
+    string_in->arr = (char*)malloc(sizeof(char) * (string_out->len + 1));
+    if (!string_in->arr) {
+        return 18;
+    }
+    for (int i = 0; i < string_out->len; i++) {
+        string_in->arr[i] = string_out->arr[i];
+    }
+    string_in->arr[string_in->len] = '\0';
+    return 0;
+}
+
+String* copy_new_string(String* string) {
+    if (!string) {
+        return NULL;
+    }
+    String* new_string = malloc(sizeof (String));
+    if (!new_string) {
+        return NULL;
+    }
+    new_string->arr = (char*)malloc(sizeof(char) * (string->len + 1));
+    if (!new_string->arr) {
+        free(new_string);
+        return NULL;
+    }
+    new_string->len = string->len;
+    for (int i = 0; i < string->len; i++) {
+        new_string->arr[i] = string->arr[i];
+    }
+    new_string->arr[string->len] = '\0';
+    return new_string;
+}
+
+String* concat(String* string_to, String* string_extra) {
+    if (!string_to || ! string_extra) {
+        return NULL;
+    }
+    int temp = string_to->len;
+    string_to->len += string_extra->len;
+    char* temp2 = (char*)realloc(string_to->arr, sizeof(char) * (string_to->len + 1));
+    if (!temp2) {
+        return NULL;
+    }
+    string_to->arr = temp2;
+    int j = 0;
+    for (int i = temp; i < string_to->len; i++) {
+        string_to->arr[i] = string_extra->arr[j];
+        j++;
+    }
+    string_to->arr[string_to->len] = '\0';
+    return string_to;
+}
+
