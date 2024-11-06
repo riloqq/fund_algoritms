@@ -5,7 +5,7 @@
 
 typedef enum {
     SUCCESS = 0,
-    ERR_OVERFLOW = 2,
+    NOT_FOUND = 2,
     ERR_MEMORY = 3,
     ERR_BASE = 4
 } status;
@@ -38,11 +38,11 @@ int is_digits_only(const char *str);
 int is_valid_time_format(const char* time_str);
 Mail* create_mail(Post* post);
 void delete_mail(Mail* mail);
-void add_mail(Post* post);
-void remove_mail(Post* post, char* identifier);
+status add_mail(Post* post);
+status remove_mail(Post* post, char* identifier);
 Mail* find_mail_by_identifier(Post* post, char* identifier);
 void display_mails(Post* post);
-void menu(Post* post);
+status menu(Post* post);
 void sort_mails(Post* post);
 void show_undelivered_mails(Post *post);
 void show_delivered_mails(Post *post);
@@ -250,7 +250,7 @@ Mail* create_mail(Post* post) {
 
     float weight;
     do {
-        printf("Введите вес посылки (положительное число): ");
+        printf("Введите вес посылки (положительное число кг): ");
         err = read_line(&buffer);
         if (err) {
             delete_string(mail->recipient->postal_code);
@@ -340,23 +340,24 @@ void delete_mail(Mail* mail) {
     free(mail);
 }
 
-void add_mail(Post* post) {
+status add_mail(Post* post) {
     Mail* new_mail = create_mail(post);
     if (!new_mail) {
-        return;
+        return ERR_MEMORY;
     }
     post->mail_count++;
     Mail** temp = (Mail**) realloc(post->mails,post->mail_count * sizeof(Mail*));
     if (!temp) {
-        return;
+        return ERR_MEMORY;
     }
     post->mails = temp;
     post->mails[post->mail_count - 1] = new_mail;
 
     sort_mails(post);
+    return SUCCESS;
 }
 
-void remove_mail(Post* post, char* identifier) {
+status remove_mail(Post* post, char* identifier) {
     int temp = -2;
     for (int i = 0; i < post->mail_count; i++) {
         if (strcmp(post->mails[i]->postal_identifier->arr, identifier) == 0) {
@@ -367,7 +368,7 @@ void remove_mail(Post* post, char* identifier) {
     }
     if (temp == -2) {
         printf("there is no %s mail", identifier);
-        return;
+        return NOT_FOUND;
     }
     for (temp; temp < post->mail_count - 1; temp++) {
         post->mails[temp] = post->mails[temp + 1];
@@ -375,11 +376,12 @@ void remove_mail(Post* post, char* identifier) {
     post->mail_count--;
     Mail** temp1 = (Mail**) realloc(post->mails, post->mail_count * sizeof(Mail*));
     if (!temp) {
-        return;
+        return ERR_MEMORY;
     }
     post->mails = temp1;
 
     sort_mails(post);
+    return SUCCESS;
 }
 
 Mail* find_mail_by_identifier(Post* post, char* identifier) {
@@ -551,7 +553,7 @@ void show_undelivered_mails(Post *post) {
     }
 }
 
-void menu(Post* post) {
+status menu(Post* post) {
     int choice;
     int err;
     char* buf = NULL;
@@ -577,7 +579,10 @@ void menu(Post* post) {
 
         switch (choice) {
             case 1:
-                add_mail(post);
+                int stat = add_mail(post);
+                if (stat != SUCCESS) {
+                    return stat;
+                }
                 break;
             case 2:
                 char id[15];
@@ -620,7 +625,7 @@ void menu(Post* post) {
                 show_undelivered_mails(post);
                 break;
             case 8:
-                return;
+                return SUCCESS;
             default:
                 printf("Некорректный выбор.\n");
                 break;
