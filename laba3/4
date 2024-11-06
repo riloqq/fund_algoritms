@@ -1,0 +1,641 @@
+#include "laba2_41.c"
+#include <stdlib.h>
+#include <time.h>
+#include <ctype.h>
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_OVERFLOW = 2,
+    ERR_MEMORY = 3,
+    ERR_BASE = 4
+} status;
+
+typedef struct {
+    String* city;
+    String* street;
+    unsigned int house_number;
+    String* building;
+    unsigned int apartment_number;
+    String* postal_code;
+} Address;
+
+typedef struct {
+    Address* recipient;
+    float weight;
+    String* postal_identifier;
+    String* creation_time;
+    String* delivery_time;
+} Mail;
+
+typedef struct {
+    Address* current_post_office;
+    Mail** mails;
+    size_t mail_count;
+} Post;
+
+String* get_current_time_string();
+int is_digits_only(const char *str);
+int is_valid_time_format(const char* time_str);
+Mail* create_mail(Post* post);
+void delete_mail(Mail* mail);
+void add_mail(Post* post);
+void remove_mail(Post* post, char* identifier);
+Mail* find_mail_by_identifier(Post* post, char* identifier);
+void display_mails(Post* post);
+void menu(Post* post);
+void sort_mails(Post* post);
+void show_undelivered_mails(Post *post);
+void show_delivered_mails(Post *post);
+int cmp2_mail(const void* a, const void* b);
+int is_expired(const Mail* mail, time_t current_time);
+int cmp1_mail(const void* a, const void* b);
+int parse_time(String* time_str, struct tm* time_struct);
+int read_line(char **result);
+
+String* get_current_time_string() {
+    time_t rawtime;
+    struct tm *timeinfo;
+    char buffer[20];
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    strftime(buffer, 20, "%d:%m:%Y %H:%M:%S", timeinfo);
+
+    return create_string(buffer);
+}
+
+int read_line(char **result) {
+    int buffer_size = 16;
+    int length = 0;
+    char *buffer = calloc(buffer_size, sizeof(char));
+
+    if (!buffer) {
+        return -1;
+    }
+
+    int ch;
+    while ((ch = fgetc(stdin)) != '\n' && ch != EOF) {
+        if (length + 1 >= buffer_size) {
+            buffer_size *= 2;
+            char *new_buffer = realloc(buffer, buffer_size);
+            if (!new_buffer) {
+                free(buffer);
+                return -1;
+            }
+            buffer = new_buffer;
+        }
+        buffer[length++] = ch;
+    }
+
+    buffer[length] = '\0';
+    *result = buffer;
+
+    if (ch != '\n' && ch != EOF) {
+        while ((ch = fgetc(stdin)) != '\n' && ch != EOF);
+    }
+
+    return 0;
+}
+
+int is_digits_only(const char *str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (!isdigit(str[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int is_valid_time_format(const char* time_str) {
+    if (strlen(time_str) != 19) {
+        return 0;
+    }
+
+    if (time_str[2] != ':' || time_str[5] != ':' || time_str[10] != ' ' || time_str[13] != ':' || time_str[16] != ':') {
+        return 0;
+    }
+    int day = (time_str[0] - '0') * 10 + (time_str[1] - '0');
+    int month = (time_str[3] - '0') * 10 + (time_str[4] - '0');
+    int year = (time_str[6] - '0') * 1000 + (time_str[7] - '0') * 100 + (time_str[8] - '0') * 10 + (time_str[9] - '0');
+    int hour = (time_str[11] - '0') * 10 + (time_str[12] - '0');
+    int minute = (time_str[14] - '0') * 10 + (time_str[15] - '0');
+    int second = (time_str[17] - '0') * 10 + (time_str[18] - '0');
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 0 ||
+        hour > 23 || minute > 59 || second > 59) {
+        return 0;
+    }
+    return 1;
+}
+
+Mail* create_mail(Post* post) {
+    Mail* mail = (Mail*) malloc(sizeof(Mail));
+    if (!mail) {
+        return NULL;
+    }
+
+    Address* temp = (Address*) malloc(sizeof(Address));
+    if (!temp) {
+        free(mail);
+        return NULL;
+    }
+    mail->recipient = temp;
+
+    char* buffer = NULL;
+    int err;
+
+    printf("Введите город получателя: ");
+    err = read_line(&buffer);
+    if (!err) {
+        mail->recipient->city = create_string(buffer);
+        free(buffer);
+    }
+    if (!mail->recipient->city || err) {
+        free(temp);
+        free(mail);
+        return NULL;
+    }
+
+    printf("Введите улицу получателя: ");
+    err = read_line(&buffer);
+    if (!err) {
+        mail->recipient->street = create_string(buffer);
+        free(buffer);
+    }
+    if (!mail->recipient->street || err) {
+        delete_string(mail->recipient->city);
+        free(temp);
+        free(mail);
+        return NULL;
+    }
+
+    int house;
+    do {
+        printf("Введите номер дома (натуральное число): ");
+        err = read_line(&buffer);
+        if (err) {
+            delete_string(mail->recipient->street);
+            delete_string(mail->recipient->city);
+            free(temp);
+            free(mail);
+            return NULL;
+        }
+        house = atoi(buffer);
+        if (house > 0 && is_digits_only(buffer)) {
+            free(buffer);
+            break;
+        }
+        printf("Пожалуйста, введите натуральное число.\n");
+        free(buffer);
+    } while (1);
+
+    mail->recipient->house_number = house;
+
+    printf("Введите корпус: ");
+    err = read_line(&buffer);
+    if (!err) {
+        mail->recipient->building = create_string(buffer);
+        free(buffer);
+    }
+    if (!mail->recipient->building || err) {
+        delete_string(mail->recipient->street);
+        delete_string(mail->recipient->city);
+        free(temp);
+        free(mail);
+        return NULL;
+    }
+
+    int plat;
+    do {
+        printf("Введите номер квартиры (натуральное число): ");
+        err = read_line(&buffer);
+        if (err) {
+            delete_string(mail->recipient->building);
+            delete_string(mail->recipient->street);
+            delete_string(mail->recipient->city);
+            free(temp);
+            free(mail);
+            return NULL;
+        }
+        plat = atoi(buffer);
+        if (plat > 0 && is_digits_only(buffer)) {
+            free(buffer);
+            break;
+        }
+        printf("Пожалуйста, введите натуральное число.\n");
+        free(buffer);
+    } while (1);
+
+    mail->recipient->apartment_number = plat;
+
+    do {
+        printf("Введите индекс получателя (6 цифр): ");
+        err = read_line(&buffer);
+        if (err) {
+            free(buffer);
+            delete_string(mail->recipient->building);
+            delete_string(mail->recipient->street);
+            delete_string(mail->recipient->city);
+            free(temp);
+            free(mail);
+            return NULL;
+        }
+        if (strlen(buffer) == 6 && is_digits_only(buffer)) {
+            mail->recipient->postal_code = create_string(buffer);
+            free(buffer);
+            break;
+        }
+        printf("Ошибка: индекс должен содержать ровно 6 цифр.\n");
+        free(buffer);
+    } while (!mail->recipient->postal_code);
+
+
+    float weight;
+    do {
+        printf("Введите вес посылки (положительное число): ");
+        err = read_line(&buffer);
+        if (err) {
+            delete_string(mail->recipient->postal_code);
+            delete_string(mail->recipient->building);
+            delete_string(mail->recipient->street);
+            delete_string(mail->recipient->city);
+            free(temp);
+            free(mail);
+            return NULL;
+        }
+
+        if (strspn(buffer, "0123456789.") == strlen(buffer) && strchr(buffer, '.') == strrchr(buffer, '.')) {
+            weight = atof(buffer);
+        } else {
+            weight = -1;
+        }
+
+        free(buffer);
+
+        if (weight > 0) {
+            mail->weight = weight;
+            break;
+        }
+
+        printf("Ошибка: вес должен быть положительным числом.\n");
+    } while (1);
+
+    do {
+        printf("Введите почтовый идентификатор (14 цифр): ");
+        err = read_line(&buffer);
+        if (err) {
+            delete_string(mail->recipient->postal_code);
+            delete_string(mail->recipient->building);
+            delete_string(mail->recipient->street);
+            delete_string(mail->recipient->city);
+            free(temp);
+            free(mail);
+            return NULL;
+        }
+        if (strlen(buffer) == 14 && is_digits_only(buffer) && find_mail_by_identifier(post, buffer) == NULL) {
+            mail->postal_identifier = create_string(buffer);
+            free(buffer);
+            break;
+        }
+        printf("Ошибка: почтовый идентификатор должен содержать ровно 14 цифр и быть уникальным.\n");
+        free(buffer);
+    } while (!mail->postal_identifier);
+
+
+    mail->creation_time = get_current_time_string();
+    if (!mail->creation_time) {
+        delete_string(mail->postal_identifier);
+        delete_string(mail->recipient->postal_code);
+        delete_string(mail->recipient->building);
+        delete_string(mail->recipient->street);
+        delete_string(mail->recipient->city);
+        free(temp);
+        free(mail);
+        return NULL;
+    }
+
+    printf("Введите время доставки (в формате дд:мм:гггг чч:мм:сс): ");
+    while (1) {
+        if (read_line(&buffer) == 0 && is_valid_time_format(buffer)) {
+            mail->delivery_time = create_string(buffer);
+            free(buffer);
+            break;
+        }
+        printf("Ошибка: неверный формат. Повторите ввод (дд:мм:гггг чч:мм:сс): ");
+        free(buffer);
+    }
+    return mail;
+}
+
+void delete_mail(Mail* mail) {
+    if (!mail) {
+        return;
+    }
+    delete_string(mail->recipient->city);
+    delete_string(mail->recipient->street);
+    delete_string(mail->recipient->building);
+    delete_string(mail->recipient->postal_code);
+    delete_string(mail->postal_identifier);
+    delete_string(mail->creation_time);
+    delete_string(mail->delivery_time);
+    free(mail->recipient);
+    free(mail);
+}
+
+void add_mail(Post* post) {
+    Mail* new_mail = create_mail(post);
+    if (!new_mail) {
+        return;
+    }
+    post->mail_count++;
+    Mail** temp = (Mail**) realloc(post->mails,post->mail_count * sizeof(Mail*));
+    if (!temp) {
+        return;
+    }
+    post->mails = temp;
+    post->mails[post->mail_count - 1] = new_mail;
+
+    sort_mails(post);
+}
+
+void remove_mail(Post* post, char* identifier) {
+    int temp = -2;
+    for (int i = 0; i < post->mail_count; i++) {
+        if (strcmp(post->mails[i]->postal_identifier->arr, identifier) == 0) {
+            delete_mail(post->mails[i]);
+            temp = i;
+            break;
+        }
+    }
+    if (temp == -2) {
+        printf("there is no %s mail", identifier);
+        return;
+    }
+    for (temp; temp < post->mail_count - 1; temp++) {
+        post->mails[temp] = post->mails[temp + 1];
+    }
+    post->mail_count--;
+    Mail** temp1 = (Mail**) realloc(post->mails, post->mail_count * sizeof(Mail*));
+    if (!temp) {
+        return;
+    }
+    post->mails = temp1;
+
+    sort_mails(post);
+}
+
+Mail* find_mail_by_identifier(Post* post, char* identifier) {
+    for (size_t i = 0; i < post->mail_count; i++) {
+        if (strcmp(post->mails[i]->postal_identifier->arr, identifier) == 0) {
+            return post->mails[i];
+        }
+    }
+    return NULL;
+}
+
+void display_mails(Post* post) {
+    printf("\nСписок посылок:\n");
+    for (size_t i = 0; i < post->mail_count; i++) {
+        Mail* mail = post->mails[i];
+        printf("Идентификатор: %s\n", mail->postal_identifier->arr);
+        printf("Город: %s\n", mail->recipient->city->arr);
+        printf("Улица: %s\n", mail->recipient->street->arr);
+        printf("Номер дома: %u\n", mail->recipient->house_number);
+        printf("Корпус: %s\n", mail->recipient->building->arr);
+        printf("Номер квартиры: %u\n", mail->recipient->apartment_number);
+        printf("Почтовый индекс: %s\n", mail->recipient->postal_code->arr);
+        printf("Вес: %.2f кг\n", mail->weight);
+        printf("Время создания: %s\n", mail->creation_time->arr);
+        if (mail->delivery_time) {
+            printf("Время доставки: %s\n", mail->delivery_time->arr);
+        }
+        printf("\n");
+    }
+}
+
+int parse_time(String* time_str, struct tm* time_struct) {
+    if (!time_str || !time_str->arr) {
+        return 0;
+    }
+    *time_struct = (struct tm){0};
+    if (sscanf(time_str->arr, "%2d:%2d:%4d %2d:%2d:%2d",
+               &time_struct->tm_mday,
+               &time_struct->tm_mon,
+               &time_struct->tm_year,
+               &time_struct->tm_hour,
+               &time_struct->tm_min,
+               &time_struct->tm_sec) != 6) {
+        return 0;
+    }
+
+    time_struct->tm_mon -= 1;
+    time_struct->tm_year -= 1900;
+
+    return 1;
+}
+
+int cmp1_mail(const void* a, const void* b) {
+    Mail* mail1 = *(Mail**)a;
+    Mail* mail2 = *(Mail**)b;
+    int res = compare_strings(mail1->recipient->postal_code, mail2->recipient->postal_code);
+    if (res != 0) {
+        return res;
+    }
+    return compare_strings(mail1->postal_identifier, mail2->postal_identifier);
+}
+
+int cmp2_mail(const void* a, const void* b) {
+    const Mail* mail1 = (const Mail*)a;
+    const Mail* mail2 = (const Mail*)b;
+
+    struct tm t1, t2;
+    if (!parse_time(mail1->creation_time, &t1) || !parse_time(mail2->creation_time, &t2)) {
+        return 0;
+    }
+
+    time_t time1 = mktime(&t1);
+    time_t time2 = mktime(&t2);
+
+    return (time1 > time2) - (time1 < time2);
+}
+
+void sort_mails(Post* post) {
+    qsort(post->mails, post->mail_count, sizeof(Mail*), cmp1_mail);
+}
+
+int is_expired(const Mail* mail, time_t current_time) {
+    struct tm delivery_time;
+    if (!parse_time(mail->delivery_time, &delivery_time)) {
+        return 0;
+    }
+
+    time_t delivery_epoch = mktime(&delivery_time);
+    return current_time > delivery_epoch;
+}
+
+void show_delivered_mails(Post *post) {
+    time_t current_time;
+    time(&current_time);
+
+    printf("Список доставленных посылок:\n");
+
+    Mail* delivered_mails[post->mail_count];
+    size_t delivered_count = 0;
+
+    for (size_t i = 0; i < post->mail_count; i++) {
+        Mail *mail = post->mails[i];
+
+        struct tm delivery_time_tm, creation_time_tm;
+        if (!parse_time(mail->delivery_time, &delivery_time_tm) ||
+            !parse_time(mail->creation_time, &creation_time_tm)) {
+            printf("Ошибка в формате времени доставки для идентификатора %s\n", mail->postal_identifier->arr);
+            continue;
+        }
+
+        time_t delivery_time = mktime(&delivery_time_tm);
+        time_t creation_time = mktime(&creation_time_tm);
+
+        if (difftime(delivery_time, creation_time) > 0 && difftime(current_time, delivery_time) >= 0) {
+            delivered_mails[delivered_count++] = mail;
+        }
+    }
+
+    qsort(delivered_mails, delivered_count, sizeof(Mail*), cmp2_mail);
+
+
+    for (size_t i = 0; i < delivered_count; i++) {
+        Mail *mail = delivered_mails[i];
+        printf("Индекс: %s, Улица: %s, Дом: %u, Идентификатор: %s, Время доставки: %s\n",
+               mail->recipient->postal_code->arr,
+               mail->recipient->street->arr,
+               mail->recipient->house_number,
+               mail->postal_identifier->arr,
+               mail->delivery_time->arr);
+    }
+}
+
+void show_undelivered_mails(Post *post) {
+    time_t current_time;
+    time(&current_time);
+
+    printf("Список недоставленных посылок:\n");
+
+    Mail* undelivered_mails[post->mail_count];
+    size_t undelivered_count = 0;
+
+    for (size_t i = 0; i < post->mail_count; i++) {
+        Mail *mail = post->mails[i];
+
+        if (!is_expired(mail, current_time)) {
+            struct tm creation_time;
+            if (!parse_time(mail->creation_time, &creation_time)) {
+                printf("Ошибка в формате времени создания для идентификатора %s\n", mail->postal_identifier->arr);
+                continue;
+            }
+
+            time_t creation_epoch = mktime(&creation_time);
+            if (difftime(current_time, creation_epoch) > 0) {
+                undelivered_mails[undelivered_count++] = mail;
+            }
+        }
+    }
+
+    qsort(undelivered_mails, undelivered_count, sizeof(Mail*), cmp2_mail);
+
+    for (size_t i = 0; i < undelivered_count; i++) {
+        Mail *mail = undelivered_mails[i];
+        printf("Индекс: %s, Улица: %s, Дом: %u, Идентификатор: %s, Время создания: %s\n",
+               mail->recipient->postal_code->arr,
+               mail->recipient->street->arr,
+               mail->recipient->house_number,
+               mail->postal_identifier->arr,
+               mail->delivery_time->arr);
+    }
+}
+
+void menu(Post* post) {
+    int choice;
+    int err;
+    char* buf = NULL;
+    time_t current_time = time(NULL);
+
+    while (1) {
+        printf("\nВыберите действие:\n");
+        printf("1. Добавить посылку\n");
+        printf("2. Удалить посылку\n");
+        printf("3. Найти посылку по идентификатору\n");
+        printf("4. Показать все посылки\n");
+        printf("5. Проверить истекшие посылки\n");
+        printf("6. Показать доставленные посылки\n");
+        printf("7. Показать недоставленные посылки\n");
+        printf("8. Выйти\n");
+        printf("Введите номер действия: ");
+
+        err = read_line(&buf);
+        if (!err) {
+            choice = atoi(buf);
+            free(buf);
+        }
+
+        switch (choice) {
+            case 1:
+                add_mail(post);
+                break;
+            case 2:
+                char id[15];
+                printf("Введите индекс посылки для удаления: ");
+                scanf("%s", id);
+                remove_mail(post, id);
+                break;
+            case 3:
+                char identifier[15];
+                printf("Введите идентификатор посылки: ");
+                scanf("%s", identifier);
+                Mail *mail = find_mail_by_identifier(post, identifier);
+                if (mail) {
+                    printf("Посылка найдена: Город: %s, Улица: %s, Вес: %.2f\n",
+                           mail->recipient->city->arr, mail->recipient->street->arr, mail->weight);
+                } else {
+                    printf("Посылка не найдена.\n");
+                }
+                break;
+            case 4:
+                display_mails(post);
+                break;
+            case 5:
+                printf("Истекшие посылки:\n");
+                for (size_t i = 0; i < post->mail_count; i++) {
+                    if (is_expired(post->mails[i], current_time)) {
+                        printf("Индекс: %s, Улица: %s, Дом: %u, Идентификатор: %s, Время создания: %s\n",
+                               post->mails[i]->recipient->postal_code->arr,
+                               post->mails[i]->recipient->street->arr,
+                               post->mails[i]->recipient->house_number,
+                               post->mails[i]->postal_identifier->arr,
+                               post->mails[i]->delivery_time->arr);
+                    }
+                }
+                break;
+            case 6:
+                show_delivered_mails(post);
+                break;
+            case 7:
+                show_undelivered_mails(post);
+                break;
+            case 8:
+                return;
+            default:
+                printf("Некорректный выбор.\n");
+                break;
+        }
+    }
+}
+
+int main(){
+    Post post_office = {NULL, NULL, 0};
+    menu(&post_office);
+
+    for (size_t i = 0; i < post_office.mail_count; i++) {
+        delete_mail(post_office.mails[i]);
+    }
+    free(post_office.mails);
+    return 0;
+
+}
