@@ -1,0 +1,201 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_RECURSION_DEPTH 100
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_INVALID_NUMB_OF_ARGS = 1,
+    ERR_CANNOT_OPEN_INPUT_FILE = 2,
+    ERR_CANNOT_OPEN_OUTPUT_FILE = 3,
+    ERR_OUTPUT_FILE_CANNOT_BE_INPUT_FILE = 4,
+    ERR_MEM = 5,
+    ERR_INVALID_FLAG = 6,
+    ERR_PARS_DOUBLE = 7,
+    ERR_INVALID_SYNTAX = 8,
+    ERR_RECURSION_DEPTH_EXCEEDED = 9
+} status;
+
+typedef struct TreeNode {
+    char data;
+    struct TreeNode** children;
+    size_t child_count;
+} TreeNode;
+
+void free_tree(TreeNode* root);
+
+int is_letter(char c) {
+    return isalpha((unsigned char)c);
+}
+
+TreeNode* create_node(char data) {
+    TreeNode* node = (TreeNode*)malloc(sizeof(TreeNode));
+    if (!node) {
+        printf("Memory allocation failed");
+        return NULL;
+    }
+    node->data = data;
+    node->children = NULL;
+    node->child_count = 0;
+    return node;
+}
+
+status add_child(TreeNode* parent, TreeNode* child) {
+    if (parent == NULL || child == NULL) {
+        return ERR_MEM;
+    }
+    TreeNode** new_children = (TreeNode**)realloc(parent->children, sizeof(TreeNode*) * (parent->child_count + 1));
+    if (!new_children) {
+        printf("Memory allocation failed");
+        return ERR_MEM;
+    }
+    parent->children = new_children;
+    parent->children[parent->child_count++] = child;
+    return SUCCESS;
+}
+
+void remove_spaces(char* str) {
+    char* dest = str;
+    while (*str) {
+        if (!isspace((unsigned char)*str)) {
+            *dest++ = *str;
+        }
+        str++;
+    }
+    *dest = '\0';
+}
+
+status validate_syntax(const char* str) {
+    while (*str) {
+        if (is_letter(*str)) {
+            str++;
+            if (*str && is_letter(*str)) {
+                return ERR_INVALID_SYNTAX;
+            }
+        }
+        if (*str == ')') {
+            str++;
+            if (*str && is_letter(*str)) {
+                return ERR_INVALID_SYNTAX;
+            }
+        }
+        str++;
+    }
+    return SUCCESS;
+}
+
+TreeNode* parse_expression(const char** str, int depth) {
+    if (depth > MAX_RECURSION_DEPTH) {
+        printf("Error: Maximum recursion depth exceeded\n");
+        return NULL;
+    }
+
+    if (!**str) return NULL;
+
+    TreeNode* root = create_node(**str);
+    if (!root) {
+        return NULL;
+    }
+
+    (*str)++;
+
+    if (**str == '(') {
+        (*str)++;
+        while (**str != ')') {
+            TreeNode* child = parse_expression(str, depth + 1);
+            if (child) {
+                if (add_child(root, child) == ERR_MEM) {
+                    free_tree(root);
+                    return NULL;
+                }
+            }
+            if (**str == ',') (*str)++;
+        }
+        (*str)++;
+    }
+    return root;
+}
+
+void print_tree(TreeNode* root, int level) {
+    if (root == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < level; i++) printf("  ");
+    printf("%c\n", root->data);
+    for (size_t i = 0; i < root->child_count; i++) {
+        print_tree(root->children[i], level + 1);
+    }
+}
+
+void free_tree(TreeNode* root) {
+    if (root == NULL) return;
+
+    for (size_t i = 0; i < root->child_count; i++) {
+        if (root->children[i] != NULL) {
+            free_tree(root->children[i]);
+        }
+    }
+    free(root->children);
+    root->children = NULL;
+    free(root);
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        printf("Usage: %s <input_file> <output_file>\n", argv[0]);
+        return ERR_INVALID_NUMB_OF_ARGS;
+    }
+
+    FILE* input = fopen(argv[1], "r");
+    if (!input) {
+        printf("Cannot open input.txt file");
+        return ERR_CANNOT_OPEN_INPUT_FILE;
+    }
+
+    FILE* output = freopen(argv[2], "w", stdout);
+    if (!output) {
+        printf("Cannot open output.txt file");
+        fclose(input);
+        return ERR_CANNOT_OPEN_OUTPUT_FILE;
+    }
+
+    char buffer[BUFSIZ];
+    int first_tree = 1;
+    while (fgets(buffer, sizeof(buffer), input)) {
+        remove_spaces(buffer);
+
+        status validation_result = validate_syntax(buffer);
+        if (validation_result != SUCCESS) {
+            printf("Invalid syntax: Expression has invalid format - %s\n", buffer);
+            fclose(input);
+            fclose(output);
+            return validation_result;
+        }
+
+        const char* str = buffer;
+        TreeNode* root = parse_expression(&str, 1);
+
+        if (!root) {
+            printf("Failed to parse expression: %s\n", buffer);
+            fclose(input);
+            fclose(output);
+            return ERR_RECURSION_DEPTH_EXCEEDED;
+        }
+
+        if (!first_tree) {
+            printf("\n");
+        }
+        first_tree = 0;
+
+        print_tree(root, 0);
+        free_tree(root);
+    }
+
+    fclose(input);
+    fclose(output);
+
+    return SUCCESS;
+}
