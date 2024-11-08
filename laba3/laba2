@@ -1,0 +1,214 @@
+#include <stdlib.h>
+#include <stdarg.h>
+#include <math.h>
+#include <stdio.h>
+
+typedef struct {
+    double* coords;
+    int n;
+} Vector;
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_MEMORY = 1
+}status;
+
+typedef double (*NormFunc)(const Vector *, const void *);
+
+Vector* create_vector(int n, ...);
+void delete_vector(Vector* vector);
+double norm_max(const Vector* v, const void* arg);
+double norm_sum(const Vector* v, const void* arg);
+double norm_matrix(const Vector* v, const void* arg);
+status max_normas(Vector**** result, int n, int num_norms, int num_vectors, ...);
+
+Vector* create_vector(int n, ...) {
+    Vector* vector = malloc(sizeof(Vector));
+    if (!vector) {
+        return NULL;
+    }
+    vector->n = n;
+    vector->coords = (double*) malloc(sizeof(double) * n);
+    if (!vector->coords) {
+        free(vector);
+        return NULL;
+    }
+
+    va_list list;
+    va_start(list, n);
+
+    for (int i = 0; i < n; i++) {
+        double num = va_arg(list, double);
+        if (!isfinite(num)) {
+            free(vector->coords);
+            free(vector);
+            va_end(list);
+            return NULL;
+        }
+        (vector->coords)[i] = num;
+    }
+    va_end(list);
+
+    return vector;
+}
+
+void delete_vector(Vector* vector) {
+    if (!vector) {
+        return;
+    }
+    if (vector->coords) {
+        free(vector->coords);
+    }
+    free(vector);
+}
+
+double norm_max(const Vector* v, const void* arg) {
+    double max = fabs(v->coords[0]);
+    for (int i = 1; i < v->n; i++) {
+        if (fabs(v->coords[i]) > max) {
+            max = fabs(v->coords[i]);
+        }
+    }
+    return max;
+}
+
+double norm_sum(const Vector* v, const void* arg) {
+    double p = *((double*) arg);
+    if (p < 1) {
+        return -1;
+    }
+    double sum = 0.0;
+
+    for (int i = 0; i < v->n; i++) {
+        sum += pow(fabs(v->coords[i]), p);
+    }
+    return pow(sum, 1.0 / p);
+}
+
+double norm_matrix(const Vector* v, const void* arg) {
+    double **a = (double **) arg;
+    double sum = 0.0;
+
+    for (int i = 0; i < v->n; i++) {
+        double matrix_sum = 0.0;
+        for (int j = 0; j < v->n; j++) {
+            sum += v->coords[i] * a[i][j] * v->coords[j];
+        }
+    }
+    return sqrt(sum);
+}
+
+status max_normas(Vector**** result, int n, int num_norms, int num_vectors, ...) {
+    Vector** vector = (Vector**) malloc(sizeof(Vector*) * num_vectors);
+    if (!vector) {
+        return ERR_MEMORY;
+    }
+    Vector*** out = (Vector***) malloc(sizeof(Vector**) * num_norms);
+    if (!out) {
+        return ERR_MEMORY;
+    }
+
+    for (int i = 0; i < num_norms; i++) {
+        out[i] = (Vector**) malloc(sizeof(Vector*) * (num_vectors + 1));
+        if (!out[i]) {
+            for (int j = 0; j < i; j++) {
+                free(out[j]);
+            }
+            free(vector);
+            free(out);
+            return ERR_MEMORY;
+        }
+    }
+    va_list list;
+    va_start(list, num_vectors);
+    for (int i = 0; i < num_vectors; i++) {
+        vector[i] = va_arg(list, Vector*);
+    }
+
+    for (int i = 0; i < num_norms; i++) {
+        NormFunc nf = va_arg(list, NormFunc);
+        void *norm_arg = va_arg(list, void*);
+
+        double max_value = -INFINITY;
+        int max_count = 0;
+
+        for (int j = 0; j < num_vectors; j++) {
+            double norm_value = nf(vector[j], norm_arg);
+
+            if (norm_value > max_value) {
+                max_value = norm_value;
+                max_count = 0;
+                out[i][max_count] = vector[j];
+                max_count++;
+            } else if (norm_value == max_value) {
+                out[i][max_count] = vector[j];
+                max_count++;
+            }
+        }
+
+        Vector** temp = (Vector**)realloc(out[i], sizeof(Vector*) * (max_count + 1));
+        if (!temp) {
+            for (int k = 0; k < num_norms; k++) {
+                free(out[k]);
+            }
+            free(out);
+            free(vector);
+            va_end(list);
+            return ERR_MEMORY;
+        }
+        out[i] = temp;
+
+        out[i][max_count] = NULL;
+    }
+    va_end(list);
+    free(vector);
+    *result = out;
+    return SUCCESS;
+}
+
+int main(){
+    Vector* v1 = create_vector(5, 1.0, 1.0, 2.0, 1.0, 3.0);
+    Vector* v2 = create_vector(5, 2.0, 2.0, 0.0, 1.0, 3.0);
+    Vector* v3 = create_vector(5, 1.5, 2.5, 2.0, 1.0, 1.0);
+
+    int num_norms = 3;
+    int num_vectors = 3;
+    int n = 5;
+    double p = 1.0;
+    double **matrix = (double**)malloc(n * sizeof(double*));
+    for (int i = 0; i < n; i++) {
+        matrix[i] = (double*)malloc(n * sizeof(double));
+        for (int j = 0; j < n; j++) {
+            matrix[i][j] = (i == j) ? 1.0 : 0.0;
+        }
+    }
+    Vector ***result;
+    status err = max_normas(&result, n, num_norms, num_vectors, v1, v2, v3, norm_max, NULL, norm_sum, &p, norm_matrix, matrix);
+
+    if (err != SUCCESS){
+        delete_vector(v1);
+        delete_vector(v2);
+        delete_vector(v3);
+        for (int i = 0; i < n; i++) free(matrix[i]);
+        free(matrix);
+        return err;
+    }
+
+    for (int i = 0; i < num_norms; i++){
+        printf("Самые длинные векторы для %d переданной нормы:\n", i + 1);
+        for (int j = 0; result[i][j]; j++){
+            Vector *v = result[i][j];
+            for (int k = 0; k < v->n; k++) printf("%lf ", v->coords[k]);
+            printf("\n");
+        }
+        free(result[i]);
+    }
+    free(result);
+
+    delete_vector(v1);
+    delete_vector(v2);
+    delete_vector(v3);
+    for (int i = 0; i < n; i++) free(matrix[i]);
+    free(matrix);
+    return 0;
+}
