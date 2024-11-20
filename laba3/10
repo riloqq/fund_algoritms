@@ -26,10 +26,6 @@ typedef struct TreeNode {
 
 void free_tree(TreeNode* root);
 
-int is_letter(char c) {
-    return isalpha((unsigned char)c);
-}
-
 TreeNode* create_node(char data) {
     TreeNode* node = (TreeNode*)malloc(sizeof(TreeNode));
     if (!node) {
@@ -69,15 +65,15 @@ void remove_spaces(char* str) {
 
 status validate_syntax(const char* str) {
     while (*str) {
-        if (is_letter(*str)) {
+        if (isalpha(*str)) {
             str++;
-            if (*str && is_letter(*str)) {
+            if (*str && isalpha(*str)) {
                 return ERR_INVALID_SYNTAX;
             }
         }
         if (*str == ')') {
             str++;
-            if (*str && is_letter(*str)) {
+            if (*str && isalpha(*str)) {
                 return ERR_INVALID_SYNTAX;
             }
         }
