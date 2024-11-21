@@ -1,0 +1,202 @@
+#pragma once
+#include "side_f.c"
+#include <stdio.h>
+#include <stdlib.h>
+
+status GetOpts(int argc, char** argv, kOpts* option) {
+    const char* flag = argv[1];
+    if ((flag[0] == '/' || flag[0] == '-') && len(flag) == 2) {
+        switch (flag[1]) {
+            case 'l':
+                if (argc != 3) {
+                    return ERR_INVALID_NUMBER_OF_ARGS;
+                }
+                *option = OPT_L;
+                break;
+            case 'r':
+                if (argc != 3) {
+                    return ERR_INVALID_NUMBER_OF_ARGS;
+                }
+                *option = OPT_R;
+                break;
+            case 'u':
+                if (argc != 3) {
+                    return ERR_INVALID_NUMBER_OF_ARGS;
+                }
+                *option = OPT_U;
+                break;
+            case 'n':
+                if (argc != 3) {
+                    return ERR_INVALID_NUMBER_OF_ARGS;
+                }
+                *option = OPT_N;
+                break;
+            case 'c':
+                if (argc < 4) {
+                    return ERR_INVALID_NUMBER_OF_ARGS;
+                }
+                *option = OPT_C;
+                break;
+            default:
+                return ERR_INVALID_NUMBER_OF_ARGS;
+        }
+        return SUCCESS;
+    }
+    return ERR_INVALID_NUMBER_OF_ARGS;
+}
+
+status HandlerOptL(char** argv, int* lenstr) {
+    *lenstr = len(argv[2]);
+    return SUCCESS;
+}
+
+status HandlerOptR(char** argv, char** str) {
+    int len_str = len(argv[2]);
+    *str = (char *) malloc(sizeof(char) * (len_str + 1));
+    if (! *str) {
+        return ERR_MEMORY;
+    }
+    copy(*str, argv[2]);
+    reverse(*str);
+    return SUCCESS;
+}
+
+status HandlerOptU(char** argv, char** str) {
+    int len_str = len(argv[2]);
+    *str = (char *) malloc(sizeof(char) * (len_str + 1));
+    if (! *str) {
+        return ERR_MEMORY;
+    }
+    copy(*str, argv[2]);
+
+    for (int i = 0; (*str)[i] != '\0'; i++) {
+        if (i % 2 == 1) {
+            (*str)[i] = (char)toupper((*str)[i]);
+        }
+    }
+    (*str)[len_str] = '\0';
+    return SUCCESS;
+}
+
+status HandlerOptN(char** argv, char** str) {
+    int len_str = len(argv[2]);
+    *str = (char *) malloc(sizeof(char) * (len_str + 1));
+    if (! *str) {
+        return ERR_MEMORY;
+    }
+    copy(*str, argv[2]);
+    int indx = 0;
+    for (int i = 0; argv[2][i] != '\0'; i++) {
+        if (isdigit(argv[2][i])) {
+            (*str)[indx++] = argv[2][i];
+        }
+    }
+
+    for (int i = 0; argv[2][i] != '\0'; i++) {
+        if (isalpha(argv[2][i])) {
+            (*str)[indx++] = argv[2][i];
+        }
+    }
+
+    for (int i = 0; argv[2][i] != '\0'; i++) {
+        if (!isalnum(argv[2][i])) {
+            (*str)[indx++] = argv[2][i];
+        }
+    }
+    (*str)[len_str] = '\0';
+    return SUCCESS;
+}
+
+status HandlerOptC(char** argv, int argc, char** result) {
+    unsigned int seed = atoi(argv[3]);
+    srand(seed);
+
+    int total_len = len(argv[2]);
+    for (int i = 4; i < argc; i++) {
+        total_len += len(argv[i]);
+    }
+
+    *result = (char*) malloc(sizeof(char) * (total_len + 1));
+    if (! *result) {
+        return ERR_MEMORY;
+    }
+
+    char** strings = (char**) malloc(sizeof(char*) * (argc - 2));
+    if (!strings) {
+        free(*result);
+        return ERR_MEMORY;
+    }
+
+    int indx = 0;
+    strings[indx++] = argv[2];
+    for (int i = 4; i < argc; i++) {
+        strings[indx++] = argv[i];
+    }
+
+    int used[argc - 3];
+    for (int i = 0; i < argc - 3; i++) {
+        used[i] = 0;
+    }
+
+    indx = 0;
+    while (indx < argc - 3) {
+        int rnd = rand() % (argc - 3);
+        if (!used[rnd]) {
+            copy(*result + len(*result), strings[rnd]);
+            used[rnd] = 1;
+            indx++;
+        }
+    }
+    free(strings);
+    (*result)[total_len] = '\0';
+    return SUCCESS;
+}
+
+int main(int argc, char** argv) {
+    kOpts opt;
+    int res = GetOpts(argc, argv, &opt);
+    if (res != SUCCESS) {
+        return res;
+    }
+    int len;
+    char* str;
+
+    switch (opt) {
+        case OPT_L:
+            res = HandlerOptL(argv, &len);
+            printf("%d", len);
+            return res;
+        case OPT_R:
+            res = HandlerOptR(argv, &str);
+            if (res) {
+                return res;
+            }
+            printf("%s", str);
+            free(str);
+            return SUCCESS;
+        case OPT_U:
+            res = HandlerOptU(argv, &str);
+            if (res) {
+                return res;
+            }
+            printf("%s", str);
+            free(str);
+            return SUCCESS;
+        case OPT_N:
+            res = HandlerOptN(argv, &str);
+            if (res) {
+                return res;
+            }
+            printf("%s", str);
+            free(str);
+            return SUCCESS;
+        case OPT_C:
+            res = HandlerOptC(argv, argc, &str);
+            if (res) {
+                return res;
+            }
+            printf("%s", str);
+            free(str);
+            return SUCCESS;
+    }
+}
