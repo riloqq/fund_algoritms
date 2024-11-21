@@ -1,0 +1,53 @@
+#include <ctype.h>
+
+typedef enum {
+    OPT_L,
+    OPT_R,
+    OPT_U,
+    OPT_N,
+    OPT_C
+} kOpts;
+
+typedef enum {
+    SUCCESS = 0,
+    ERR_INVALID_NUMBER_OF_ARGS = 1,
+    ERR_MEMORY = 2
+} status;
+
+int len(const char* str);
+status GetOpts(int argc, char** argv, kOpts* option);
+status HandlerOptL(char** argv, int* lenstr);
+void reverse(char* str);
+status HandlerOptR(char** argv, char** str);
+void copy(char* to, const char* from);
+status HandlerOptU(char** argv, char** str);
+status HandlerOptN(char** argv, char** str);
+status HandlerOptC(char** argv, int argc, char** result);
+
+int len(const char* str) {
+    int i = 0;
+    while (str[i] != '\0') {
+        ++i;
+    }
+    return i;
+}
+
+void reverse(char* str) {
+    int length = len(str);
+    char *start = str;
+    char *end = str + length - 1;
+    char temp;
+
+    while (start < end) {
+        temp = *start;
+        *start = *end;
+        *end = temp;
+
+        ++start;
+        --end;
+    }
+}
+
+void copy(char* to, const char* from) {
+    while ((*to++ = *from++));
+}
