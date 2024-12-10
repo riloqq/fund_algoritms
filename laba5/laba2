@@ -1,0 +1,111 @@
+#include <iostream>
+#include <vector>
+#include <cstddef>
+#include <fstream>
+#include <climits>
+#include <sys/stat.h>
+
+bool is_same_file(const char* a, const char* b) {
+    char input_path[PATH_MAX];
+    char output_path[PATH_MAX];
+
+    struct stat input_stat, output_stat;
+    bool input_exists = (stat(a, &input_stat) == 0);
+    bool output_exists = (stat(b, &output_stat) == 0);
+
+    if (!input_exists || !output_exists) {
+        return false;
+    }
+
+    if (!realpath(a, input_path)) {
+        throw std::runtime_error("Failed to resolve path for file: " + std::string(a));
+    }
+    if (!realpath(b, output_path)) {
+        throw std::runtime_error("Failed to resolve path for file: " + std::string(b));
+    }
+
+    return std::string(input_path) == std::string(output_path);
+}
+
+class encoder {
+    std::vector <std::byte> key;
+
+    std::vector <std::byte> KSA(const std::vector<std::byte> & key) {
+        std::vector<std::byte> S(256);
+        for (int i = 0; i < 256; i++) {
+            S[i] = std::byte(i);
+        }
+
+        int j = 0;
+        for (int i = 0; i < 256; i++) {
+            j = (j + std::to_integer<int>(S[i]) + std::to_integer<int>(key[i % key.size()])) % 256;
+            std::swap(S[i], S[j]);
+        }
+
+        return S;
+    }
+
+    std::byte keyItem(std::vector<std::byte> &S, int&x, int&y) {
+        x = (x + 1) % 256;
+        y = (y + std::to_integer<int>(S[x])) % 256;
+        std::swap(S[x], S[y]);
+
+        return S[(std::to_integer<int>(S[x]) + std::to_integer<int>(S[y])) % 256];
+    }
+
+public:
+
+    explicit encoder(const std::vector<std::byte>&key) : key(key) {}
+
+    void encode(const std::string& file_in, const std::string& file_out) {
+        //samef
+        if (is_same_file(file_in.c_str(), file_out.c_str())) {
+            throw std::runtime_error("Input and output files must be different.");
+        }
+
+        std::ifstream input(file_in, std::ios::binary);
+        if (!input) {
+            throw std::runtime_error("Failed to open input file: " + file_in);
+        }
+
+        std::ofstream output(file_out, std::ios::binary);
+        if (!output) {
+            throw std::runtime_error("Failed to open output file: " + file_out);
+        }
+
+        int x = 0, y = 0;
+        std::vector<std::byte> S = KSA(key);
+
+        char ch;
+        while(input.get(ch)) {
+            std::byte byte_in = std::byte(static_cast<unsigned char>(ch));
+            std::byte byte_out = byte_in ^ keyItem(S, x, y);
+            output.put(static_cast<char>(std::to_integer<unsigned char>(byte_out)));
+        }
+    }
+
+    void setKey(const std::vector<std::byte>& new_key) {
+        key = new_key;
+    }
+};
+
+int main() {
+    try {
+        std::vector<std::byte> key1 = {std::byte('A'), std::byte('B'), std::byte('C')};
+        encoder enc(key1);
+
+        enc.encode("input.txt", "encrypted1.txt");
+        enc.encode("encrypted1.txt", "decrypted1.txt");
+        std::cout << "Encryption and decryption 1 completed successfully.\n";
+
+        std::vector<std::byte> key2 = {std::byte('G'), std::byte('O'), std::byte('O'), std::byte('L')};
+        enc.setKey(key2);
+
+        enc.encode("input.txt", "encrypted2.txt");
+        enc.encode("encrypted2.txt", "decrypted2.txt");
+        std::cout << "Encryption and decryption 2 completed successfully.\n";
+    } catch (const std::exception& e) {
+        std::cerr << "error: " << e.what() << std::endl;
+    }
+    return 0;
+}
