@@ -65,26 +65,29 @@ public:
 
 
 int main() {
-    logical_values_array a(5); // 5 = 000...0101
-    logical_values_array b(3); // 3 = 000...0011
+    try {
+        logical_values_array a(5); // 5 = 000...0101
+        logical_values_array b(3); // 3 = 000...0011
 
-    std::cout << "Value A: " << a.get_value() << " (" << a.to_binary_str() << ")\n";
-    std::cout << "Value B: " << b.get_value() << " (" << b.to_binary_str() << ")\n";
+        std::cout << "Value A: " << a.get_value() << " (" << a.to_binary_str() << ")\n";
+        std::cout << "Value B: " << b.get_value() << " (" << b.to_binary_str() << ")\n";
 
-    auto and_result = a.conjunction(b);
-    std::cout << "A AND B: " << and_result.get_value() << " (" << and_result.to_binary_str() << ")\n";
+        auto and_result = a.conjunction(b);
+        std::cout << "A AND B: " << and_result.get_value() << " (" << and_result.to_binary_str() << ")\n";
 
-    auto or_result = a.disjunction(b);
-    std::cout << "A OR B: " << or_result.get_value() << " (" << or_result.to_binary_str() << ")\n";
+        auto or_result = a.disjunction(b);
+        std::cout << "A OR B: " << or_result.get_value() << " (" << or_result.to_binary_str() << ")\n";
 
-    auto xor_result = a.xor_op(b);
-    std::cout << "A XOR B: " << xor_result.get_value() << " (" << xor_result.to_binary_str() << ")\n";
+        auto xor_result = a.xor_op(b);
+        std::cout << "A XOR B: " << xor_result.get_value() << " (" << xor_result.to_binary_str() << ")\n";
 
-    auto inv_result = a.invert();
-    std::cout << "NOT A: " << inv_result.get_value() << " (" << inv_result.to_binary_str() << ")\n";
+        auto inv_result = a.invert();
+        std::cout << "NOT A: " << inv_result.get_value() << " (" << inv_result.to_binary_str() << ")\n";
 
-    std::cout << "Bit 2 of A: " << a.get_bit(2) << "\n";
-    std::cout << "A equals B: " << (logical_values_array::equals(a, b) ? "true" : "false") << "\n";
-
+        std::cout << "Bit 2 of A: " << a.get_bit(2) << "\n";
+        std::cout << "A equals B: " << (logical_values_array::equals(a, b) ? "true" : "false") << "\n";
+    } catch (const std::exception& err) {
+        std :: cerr << "error: " << err.what() << '\n';
+    }
     return 0;
 }
