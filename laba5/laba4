@@ -1,0 +1,86 @@
+//
+// Created by Олеся on 10.12.2024.
+//
+#include <iostream>
+#include <cmath>
+
+class complex {
+    double real;
+    double imag;
+public:
+    complex(double r = 0, double i = 0) : real(r), imag(i) {}
+
+    complex add(const complex& other) const {
+        return complex(real + other.real, imag + other.imag);
+    }
+
+    complex subtract(const complex& other) const {
+        return complex(real - other.real, imag - other.imag);
+    }
+
+    complex multiply(const complex& other) const {
+        return complex(real * other.real - imag * other.imag,
+                       real * other.imag + imag * other.real);
+    }
+
+    complex divide(const complex& other) const {
+        double den = other.real * other.real + other.imag * other.imag;
+        if (!den) {
+            throw std::runtime_error("Деление на ноль!");
+        }
+        return complex((real * other.real + imag * other.imag) / den,
+                       (imag * other.real - real * other.imag) / den);
+    }
+
+    double moduls() const {
+        return std::sqrt(real * real + imag * imag);
+    }
+
+    double arg() const {
+        return std::atan2(imag, real);
+    }
+
+    void print() const {
+        if (imag >= 0) {
+            std::cout << real << " + " << imag << "i" << '\n';
+        } else {
+            std::cout << real << " - " << -imag << "i" << '\n';
+        }
+    }
+};
+
+int main() {
+    try {
+        complex c1(3, 4); // 3 + 4i
+        complex c2(1, -2); // 1 - 2i
+
+        std::cout << "Первое число: ";
+        c1.print();
+
+        std::cout << "Второе число: ";
+        c2.print();
+
+        complex sum = c1.add(c2);
+        std::cout << "Сумма: ";
+        sum.print();
+
+        complex difference = c1.subtract(c2);
+        std::cout << "Разность: ";
+        difference.print();
+
+        complex product = c1.multiply(c2);
+        std::cout << "Произведение: ";
+        product.print();
+
+        complex quotient = c1.divide(c2);
+        std::cout << "Частное: ";
+        quotient.print();
+
+        std::cout << "Модуль первого числа: " << c1.moduls() << '\n';
+        std::cout << "Аргумент первого числа (в радианах): " << c1.arg() << '\n';
+    } catch (const std::exception& e) {
+        std::cerr << "error: " << e.what() << std::endl;
+    }
+
+    return 0;
+}
