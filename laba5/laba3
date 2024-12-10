@@ -1,0 +1,90 @@
+//
+// Created by Олеся on 10.12.2024.
+//
+#include <iostream>
+#include <string>
+#include <stdexcept>
+#include <bitset>
+
+class logical_values_array {
+    unsigned int value;
+public:
+    logical_values_array(unsigned int val = 0) : value(val) {}
+
+    unsigned int get_value() const {
+        return value;
+    }
+
+    logical_values_array invert() const {
+        return logical_values_array(~value);
+    }
+
+    logical_values_array conjunction(const logical_values_array& other) const {
+        return logical_values_array(value & other.value);
+    }
+
+    logical_values_array disjunction(const logical_values_array& other) const {
+        return logical_values_array(value | other.value);
+    }
+
+    logical_values_array implication(const logical_values_array& other) const {
+        return logical_values_array(~value | other.value);
+    }
+
+    logical_values_array coimplication(const logical_values_array& other) const {
+        return logical_values_array(~(value ^ other.value));
+    }
+
+    logical_values_array xor_op(const logical_values_array& other) const {
+        return logical_values_array(value ^ other.value);
+    }
+
+    logical_values_array sheffer_stroke(const logical_values_array& other) const {
+        return logical_values_array(~(value & other.value));
+    }
+
+    logical_values_array pierce_arrow(const logical_values_array& other) const {
+        return logical_values_array(~(value | other.value));
+    }
+
+    static bool equals(const logical_values_array& a, const logical_values_array& b) {
+        return a.value == b.value;
+    }
+
+    bool get_bit(size_t position) const {
+        if (position >= sizeof(unsigned int) * 8) {
+            throw std::out_of_range("Bit position out of range");
+        }
+        return (value >> position) & 1;
+    }
+
+    std::string to_binary_str() const {
+        return std::bitset<sizeof(unsigned int) * 8>(value).to_string();
+    }
+};
+
+
+int main() {
+    logical_values_array a(5); // 5 = 000...0101
+    logical_values_array b(3); // 3 = 000...0011
+
+    std::cout << "Value A: " << a.get_value() << " (" << a.to_binary_str() << ")\n";
+    std::cout << "Value B: " << b.get_value() << " (" << b.to_binary_str() << ")\n";
+
+    auto and_result = a.conjunction(b);
+    std::cout << "A AND B: " << and_result.get_value() << " (" << and_result.to_binary_str() << ")\n";
+
+    auto or_result = a.disjunction(b);
+    std::cout << "A OR B: " << or_result.get_value() << " (" << or_result.to_binary_str() << ")\n";
+
+    auto xor_result = a.xor_op(b);
+    std::cout << "A XOR B: " << xor_result.get_value() << " (" << xor_result.to_binary_str() << ")\n";
+
+    auto inv_result = a.invert();
+    std::cout << "NOT A: " << inv_result.get_value() << " (" << inv_result.to_binary_str() << ")\n";
+
+    std::cout << "Bit 2 of A: " << a.get_bit(2) << "\n";
+    std::cout << "A equals B: " << (logical_values_array::equals(a, b) ? "true" : "false") << "\n";
+
+    return 0;
+}
