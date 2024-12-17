@@ -1,0 +1,279 @@
+//
+// Created by Олеся on 16.12.2024.
+//
+#include <iostream>
+#include <vector>
+#include <memory>
+#include <ctime>
+#include <algorithm>
+
+class Product {
+    inline static size_t counter = 0;
+protected:
+    std::string name;
+    size_t id;
+    double weight;
+    double price;
+    size_t days;
+public:
+    Product(const std::string &name, double weight, double price, size_t days)
+            : name(name), weight(weight), price(price), days(days) {
+        if (weight < 0 || price < 0) {
+            throw std::invalid_argument("Weight, price, and storage period must be non-negative.");
+        }
+        id = counter++;
+    }
+
+    virtual double calculateStorageFee() const {
+        return weight * price;
+    }
+
+    virtual void displayInfo() const {
+        std::cout << "ID: " << id << " NAME: " << name << " WEIGHT: " << weight << " PRICE: " << price << " PERIOD: " << days;
+    }
+
+    Product(const Product& other) {
+        name = other.name;
+        id = counter++;
+        weight = other.weight;
+        price = other.price;
+        days = other.days;
+    }
+
+    Product& operator=(const Product& other) {
+        if (this == &other) {
+            return *this;
+        }
+        name = other.name;
+        id = counter++;
+        weight = other.weight;
+        price = other.price;
+        days = other.days;
+        return *this;
+    }
+
+    virtual ~Product() = default;
+
+    size_t getId() const {
+        return id;
+    }
+};
+
+class PerishableProduct: public virtual Product {
+    time_t expirationDate;
+public:
+    PerishableProduct(const std::string &name, double weight, double price, size_t days, const time_t& expirationDate)
+            : Product(name, weight, price, days), expirationDate(expirationDate) {}
+
+    PerishableProduct(const PerishableProduct& other) : Product(other), expirationDate(other.expirationDate) {}
+
+    PerishableProduct& operator=(const PerishableProduct& other) {
+        if (this == &other) {
+            return *this;
+        }
+        Product::operator=(other);
+        expirationDate = other.expirationDate;
+        return *this;
+    }
+
+    double calculateStorageFee() const override {
+        double extra = (expirationDate > 5) ? 1.0 : ((6 - expirationDate) * 0.05) + 1;
+        double res = Product::calculateStorageFee() * extra;
+        return res;
+    }
+
+    time_t getExpirationDate() const {
+        return expirationDate;
+    }
+};
+
+class ElectronicProduct: public virtual Product {
+    size_t warrantyPeriod;
+    double powerRating;
+public:
+    ElectronicProduct(const std::string &name, double weight, double price, size_t days, size_t warrantyPeriod, double powerRating)
+            : Product(name, weight, price, days), warrantyPeriod(warrantyPeriod), powerRating(powerRating) {
+        if (warrantyPeriod < 1) {
+            throw std::invalid_argument("Warranty period can't be less than 1 day");
+        }
+        if (powerRating < 0) {
+            throw std::invalid_argument("Power rating must be non-negative");
+        }
+    }
+
+    ElectronicProduct(const ElectronicProduct &other) : Product(other), warrantyPeriod(other.warrantyPeriod), powerRating(other.powerRating) {}
+
+    ElectronicProduct& operator=(const ElectronicProduct& other) {
+        if (this == &other) {
+            return *this;
+        }
+        Product::operator=(other);
+        warrantyPeriod = other.warrantyPeriod;
+        powerRating = other.powerRating;
+        return *this;
+    }
+
+    void displayInfo() const override {
+        Product::displayInfo();
+        std::cout << " WARRANTY PERIOD: " << warrantyPeriod << " POWER RATING: " << powerRating;
+    }
+};
+
+class BuildingMaterial: public virtual Product {
+    bool flammability;
+public:
+    BuildingMaterial(const std::string &name, double weight, double price, size_t days, bool flammability)
+            : Product(name, weight, price, days), flammability(flammability) {}
+
+    BuildingMaterial(const BuildingMaterial &other) : Product(other), flammability(other.flammability) {}
+
+    BuildingMaterial& operator=(const BuildingMaterial &other) {
+        Product::operator=(other);
+        flammability = other.flammability;
+        return *this;
+    }
+
+    double calculateStorageFee() const override {
+        return Product::calculateStorageFee() * (flammability ? 2 : 1);
+    }
+
+    void displayInfo() const override {
+        Product::displayInfo();
+        std::cout << " FLAMMABILITY: " << (flammability ? "YES" : "NO");
+    }
+};
+
+class Warehouse {
+    std::vector<std::unique_ptr<Product>> products;
+public:
+    void addProduct(Product* product) {
+        if (!product) {
+            throw std::invalid_argument("Cannot add null product to warehouse.");
+        }
+        auto iter = std::find_if(products.begin(), products.end(), [product](const auto& prod) { return product->getId() == prod->getId(); });
+        if (iter != products.end()) {
+            throw std::runtime_error("Product with ID " + std::to_string(product->getId()) + " already exists.");
+        }
+
+        products.push_back(std::unique_ptr<Product>(product));
+    }
+
+    void removeProduct(unsigned int id) {
+        auto iter = std::remove_if(products.begin(), products.end(), [id](const auto &p) { return p->getId() == id; });
+        if (iter == products.end()) {
+            throw std::runtime_error("Product with ID " + std::to_string(id) + " not found.");
+        }
+        products.erase(iter, products.end());
+    }
+
+    void displayAllProducts() const {
+        for (const auto &product : products) {
+            product->displayInfo();
+            std::cout << "\n--------------------\n";
+        }
+    }
+
+    void findProductsByCategory(const std::string& category) const {
+        bool flag = false;
+
+        for (const auto& product : products) {
+            if ((category == "Perishable" && dynamic_cast<PerishableProduct*>(product.get())) ||
+                (category == "Electronic" && dynamic_cast<ElectronicProduct*>(product.get())) ||
+                (category == "BuildingMaterial" && dynamic_cast<BuildingMaterial*>(product.get()))) {
+                flag = true;
+                product.get()->displayInfo();
+                std::cout << "\n--------------------\n";
+            }
+        }
+        if (!flag) {
+            std::cout << "Nothing was found for " << category << " category " << "\n";
+        }
+    }
+
+    void displayInventory() const {
+        std::cout << "\nBuilding Material products:" << "\n";
+        findProductsByCategory("BuildingMaterial");
+        std::cout << "\nElectronic products:" << "\n";
+        findProductsByCategory("Electronic");
+        std::cout << "\nPerishable products:" << "\n";
+        findProductsByCategory("Perishable");
+    }
+
+    double calculateTotalStorageFee() const {
+        double totalFee = 0;
+        for (const auto &product : products) {
+            totalFee += product->calculateStorageFee();
+        }
+        return totalFee;
+    }
+
+    std::vector<PerishableProduct> getExpiringProducts(const int days) const {
+        if (days < 0) {
+            throw std::invalid_argument("Invalid days amount");
+        }
+
+        std::vector<PerishableProduct> res;
+        time_t currentTime = time(nullptr);
+        for (const auto &product : products) {
+            auto prod = dynamic_cast<const PerishableProduct *>(product.get());
+            if (prod && difftime(prod->getExpirationDate(), currentTime) < days * 24 * 60 * 60) {
+                res.push_back(*prod);
+            }
+        }
+
+        return res;
+    }
+
+    Warehouse& operator+=(Product* product) {
+        addProduct(product);
+        return *this;
+    }
+
+    Warehouse& operator-=(unsigned int id) {
+        removeProduct(id);
+        return *this;
+    }
+
+    Product* operator[](unsigned int id) const {
+        auto iter = std::find_if(products.begin(), products.end(), [id](const auto& prod) { return id == prod->getId(); });
+        if (iter == products.end()) {
+            return nullptr;
+        }
+        return iter->get();
+    }
+};
+
+std::ostream& operator<<(std::ostream& stream, const Warehouse& ware) {
+    ware.displayAllProducts();
+    return stream;
+}
+
+int main() {
+    Warehouse warehouse;
+
+    warehouse += new PerishableProduct("Milk", 1.0, 10.0, 7, time(nullptr) + 5 * 24 * 60 * 60);
+    warehouse += new ElectronicProduct("Laptop", 2.5, 1000.0, 30, 12, 50);
+    warehouse += new BuildingMaterial("Wood", 10.0, 50.0, 60, true);
+
+    std::cout << "All products on the warehouse:\n";
+    warehouse.displayAllProducts();
+
+    std::cout << "\nInventory by categories:\n";
+    warehouse.displayInventory();
+
+    std::cout << "\nTotal storage fee: " << warehouse.calculateTotalStorageFee() << "\n";
+
+    std::cout << "\nExpiring products in 7 days:\n";
+    auto expiringProducts = warehouse.getExpiringProducts(7);
+    for (const auto& product : expiringProducts) {
+        product.displayInfo();
+        std::cout << "\n";
+    }
+
+    warehouse -= 1;
+    
+    std::cout << "\nProducts after removal:\n";
+    warehouse.displayAllProducts();
+
+    return 0;
+}
